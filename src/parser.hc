@@ -78,6 +78,20 @@ pub fun parse_bare_key(s: string, pos: int) : result<(string, int), string> {
   else { Ok((s[pos:end_pos], end_pos)) }
 }
 
+// Dispatch: bare key, "quoted key", or 'literal key'
+pub fun parse_key(s: string, pos: int) : result<(string, int), string> {
+  if peek(s, pos) == "\"" { parse_basic_string(s, pos) }
+  else if peek(s, pos) == "\'" { parse_literal_key(s, pos + 1, "") }
+  else { parse_bare_key(s, pos) }
+}
+
+pub fun parse_literal_key(s: string, pos: int, acc: string) : result<(string, int), string> {
+  if pos >= str_length(s) { Err("unterminated literal key") }
+  else if peek(s, pos) == "\'" { Ok((acc, pos + 1)) }
+  else if peek(s, pos) == "\n" { Err("newline in literal key at position " + show(pos)) }
+  else { parse_literal_key(s, pos + 1, acc + peek(s, pos)) }
+}
+
 // ============================================================
 // Basic string parsing ("...")
 // ============================================================
@@ -264,7 +278,7 @@ pub fun parse_table_header(s: string, pos: int) : result<(list<string>, int), st
 }
 
 pub fun parse_header_key(s: string, pos: int) : result<(list<string>, int), string> {
-  match parse_bare_key(s, pos) {
+  match parse_key(s, pos) {
     Err(e) => Err(e),
     Ok((k, p)) => parse_header_key_rest(s, skip_ws(s, p), [k])
   }
@@ -274,7 +288,7 @@ pub fun parse_header_key_rest(s: string, pos: int, keys: list<string>) : result<
   if peek(s, pos) != "." { Ok((keys, pos)) }
   else {
     let p = skip_ws(s, pos + 1)
-    match parse_bare_key(s, p) {
+    match parse_key(s, p) {
       Err(e) => Err(e),
       Ok((k, p2)) => parse_header_key_rest(s, skip_ws(s, p2), keys + [k])
     }
@@ -315,7 +329,7 @@ pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>) : r
 }
 
 pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
-  match parse_bare_key(input, pos) {
+  match parse_key(input, pos) {
     Err(e) => Err(e),
     Ok((key, p1)) => {
       let p2 = skip_ws(input, p1)
