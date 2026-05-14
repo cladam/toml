@@ -166,44 +166,166 @@ pub fun classify_as_float(cleaned: string, token: string) : Toml {
 }
 
 // ============================================================
+// Table helpers (nested insertion)
+// ============================================================
+
+pub fun table_find(entries: list<(string, Toml)>, key: string) : maybe<Toml> {
+  entries
+    |> find((e) => e.0 == key)
+    |> map_maybe((e) => e.1)
+}
+
+pub fun table_replace(entries: list<(string, Toml)>, key: string, value: Toml) : list<(string, Toml)> {
+  map(entries, (e) => if e.0 == key { (key, value) } else { e })
+}
+
+pub fun table_set(entries: list<(string, Toml)>, path: list<string>, value: Toml) : result<list<(string, Toml)>, string> {
+  match path {
+    [] => Err("empty key path"),
+    [key] => table_set_leaf(entries, key, value),
+    [key, ..rest] => table_set_nested(entries, key, rest, value)
+  }
+}
+
+pub fun table_set_leaf(entries: list<(string, Toml)>, key: string, value: Toml) : result<list<(string, Toml)>, string> {
+  if any(entries, (e) => e.0 == key) { Err("duplicate key: " + key) }
+  else { Ok(entries + [(key, value)]) }
+}
+
+pub fun table_set_nested(entries: list<(string, Toml)>, key: string, rest: list<string>, value: Toml) : result<list<(string, Toml)>, string> {
+  match table_find(entries, key) {
+    Some(TTable(sub)) => {
+      match table_set(sub, rest, value) {
+        Ok(new_sub) => Ok(table_replace(entries, key, TTable(new_sub))),
+        Err(e) => Err(e)
+      }
+    },
+    Some(_) => Err("key " + key + " is not a table"),
+    None => {
+      match table_set([], rest, value) {
+        Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
+        Err(e) => Err(e)
+      }
+    }
+  }
+}
+
+// Ensure a path of tables exists (for [table] headers)
+pub fun ensure_table(entries: list<(string, Toml)>, path: list<string>) : result<list<(string, Toml)>, string> {
+  match path {
+    [] => Ok(entries),
+    [key, ..rest] => {
+      match table_find(entries, key) {
+        Some(TTable(sub)) => {
+          match ensure_table(sub, rest) {
+            Ok(new_sub) => Ok(table_replace(entries, key, TTable(new_sub))),
+            Err(e) => Err(e)
+          }
+        },
+        Some(_) => Err("key " + key + " is not a table"),
+        None => {
+          match ensure_table([], rest) {
+            Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
+            Err(e) => Err(e)
+          }
+        }
+      }
+    }
+  }
+}
+
+// ============================================================
+// Table header parsing
+// ============================================================
+
+pub fun parse_table_header(s: string, pos: int) : result<(list<string>, int), string> {
+  // pos is at '['
+  let p = skip_ws(s, pos + 1)
+  match parse_header_key(s, p) {
+    Err(e) => Err(e),
+    Ok((keys, p2)) => {
+      let p3 = skip_ws(s, p2)
+      if peek(s, p3) != "]" { Err("expected ']' at position " + show(p3)) }
+      else { Ok((keys, p3 + 1)) }
+    }
+  }
+}
+
+pub fun parse_header_key(s: string, pos: int) : result<(list<string>, int), string> {
+  match parse_bare_key(s, pos) {
+    Err(e) => Err(e),
+    Ok((k, p)) => parse_header_key_rest(s, skip_ws(s, p), [k])
+  }
+}
+
+pub fun parse_header_key_rest(s: string, pos: int, keys: list<string>) : result<(list<string>, int), string> {
+  if peek(s, pos) != "." { Ok((keys, pos)) }
+  else {
+    let p = skip_ws(s, pos + 1)
+    match parse_bare_key(s, p) {
+      Err(e) => Err(e),
+      Ok((k, p2)) => parse_header_key_rest(s, skip_ws(s, p2), keys + [k])
+    }
+  }
+}
+
+// ============================================================
 // Document parser
 // ============================================================
 
 pub fun toml_parse(input: string) : result<Toml, string> {
-  parse_doc(input, 0, [])
+  parse_doc(input, 0, [], [])
 }
 
-pub fun parse_doc(input: string, pos: int, entries: list<(string, Toml)>) : result<Toml, string> {
+// path = current table path (e.g. ["server"] when inside [server])
+pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
   let p = skip_ws_nl_comments(input, pos)
-  if p >= str_length(input) { Ok(TTable(entries)) }
-  else { parse_keyval(input, p, entries) }
+  if p >= str_length(input) { Ok(TTable(root)) }
+  else if peek(input, p) == "[" { parse_doc_table(input, p, root) }
+  else { parse_doc_keyval(input, p, path, root) }
 }
 
-pub fun parse_keyval(input: string, pos: int, entries: list<(string, Toml)>) : result<Toml, string> {
+pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>) : result<Toml, string> {
+  match parse_table_header(input, pos) {
+    Err(e) => Err(e),
+    Ok((path, p)) => {
+      match expect_eol(input, p) {
+        Err(e) => Err(e),
+        Ok(p2) => {
+          match ensure_table(root, path) {
+            Err(e) => Err(e),
+            Ok(new_root) => parse_doc(input, p2, path, new_root)
+          }
+        }
+      }
+    }
+  }
+}
+
+pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
   match parse_bare_key(input, pos) {
     Err(e) => Err(e),
-    Ok((key, p1)) => parse_equals(input, key, skip_ws(input, p1), entries)
-  }
-}
-
-pub fun parse_equals(input: string, key: string, pos: int, entries: list<(string, Toml)>) : result<Toml, string> {
-  if peek(input, pos) != "=" { Err("expected '=' at position " + show(pos)) }
-  else { parse_rhs(input, key, skip_ws(input, pos + 1), entries) }
-}
-
-pub fun parse_rhs(input: string, key: string, pos: int, entries: list<(string, Toml)>) : result<Toml, string> {
-  match parse_value(input, pos) {
-    Err(e) => Err(e),
-    Ok((value, p)) => finish_keyval(input, key, value, p, entries)
-  }
-}
-
-pub fun finish_keyval(input: string, key: string, value: Toml, pos: int, entries: list<(string, Toml)>) : result<Toml, string> {
-  if any(entries, (e) => e.0 == key) { Err("duplicate key: " + key) }
-  else {
-    match expect_eol(input, pos) {
-      Err(e) => Err(e),
-      Ok(p) => parse_doc(input, p, entries + [(key, value)])
+    Ok((key, p1)) => {
+      let p2 = skip_ws(input, p1)
+      if peek(input, p2) != "=" { Err("expected '=' at position " + show(p2)) }
+      else {
+        let p3 = skip_ws(input, p2 + 1)
+        match parse_value(input, p3) {
+          Err(e) => Err(e),
+          Ok((value, p4)) => {
+            let full_path = path + [key]
+            match table_set(root, full_path, value) {
+              Err(e) => Err(e),
+              Ok(new_root) => {
+                match expect_eol(input, p4) {
+                  Err(e) => Err(e),
+                  Ok(p5) => parse_doc(input, p5, path, new_root)
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
