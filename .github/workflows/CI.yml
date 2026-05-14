@@ -64,7 +64,7 @@ jobs:
           for f in tests/test_*.hc; do
             echo "=== $f ==="
             output=$(hica test "$f" 2>&1)
-            echo "$output" | grep -E 'passed|failed|error\['
+            echo "$output"
             if echo "$output" | grep -q 'failed'; then
               failed=1
             fi
