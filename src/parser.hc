@@ -106,11 +106,23 @@ pub fun scan_escape(s: string, pos: int, acc: string) : result<(string, int), st
 }
 
 // ============================================================
-// Value parsing (only basic strings + bare values for now)
+// Literal string parsing ('...')
+// ============================================================
+
+pub fun parse_literal_string(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { Err("unterminated literal string") }
+  else if peek(s, pos) == "'" { Ok((TStr(acc), pos + 1)) }
+  else if peek(s, pos) == "\n" { Err("newline in literal string at position " + show(pos)) }
+  else { parse_literal_string(s, pos + 1, acc + peek(s, pos)) }
+}
+
+// ============================================================
+// Value parsing
 // ============================================================
 
 pub fun parse_value(s: string, pos: int) : result<(Toml, int), string> {
   if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, "") }
+  else if peek(s, pos) == "'" { parse_literal_string(s, pos + 1, "") }
   else { parse_value_bare(s, pos, "") }
 }
 
