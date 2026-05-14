@@ -328,10 +328,28 @@ pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>) : r
   }
 }
 
-pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
-  match parse_key(input, pos) {
+pub fun parse_dotted_key(s: string, pos: int) : result<(list<string>, int), string> {
+  match parse_key(s, pos) {
     Err(e) => Err(e),
-    Ok((key, p1)) => {
+    Ok((k, p)) => parse_dotted_key_rest(s, skip_ws(s, p), [k])
+  }
+}
+
+pub fun parse_dotted_key_rest(s: string, pos: int, keys: list<string>) : result<(list<string>, int), string> {
+  if peek(s, pos) != "." { Ok((keys, pos)) }
+  else {
+    let p = skip_ws(s, pos + 1)
+    match parse_key(s, p) {
+      Err(e) => Err(e),
+      Ok((k, p2)) => parse_dotted_key_rest(s, skip_ws(s, p2), keys + [k])
+    }
+  }
+}
+
+pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
+  match parse_dotted_key(input, pos) {
+    Err(e) => Err(e),
+    Ok((keys, p1)) => {
       let p2 = skip_ws(input, p1)
       if peek(input, p2) != "=" { Err("expected '=' at position " + show(p2)) }
       else {
@@ -339,7 +357,7 @@ pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list
         match parse_value(input, p3) {
           Err(e) => Err(e),
           Ok((value, p4)) => {
-            let full_path = path + [key]
+            let full_path = path + keys
             match table_set(root, full_path, value) {
               Err(e) => Err(e),
               Ok(new_root) => {

@@ -53,6 +53,79 @@ test "quoted key in table header" {
 }
 
 // ============================================================
+// Dotted key tests
+// ============================================================
+
+test "simple dotted key" {
+  match toml_parse("server.host = \"localhost\"") {
+    Ok(doc) => {
+      match toml_get(doc, "server") {
+        Some(s) => {
+          match toml_get(s, "host") {
+            Some(TStr(v)) => assert(v == "localhost"),
+            _ => assert(false)
+          }
+        },
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "multi-level dotted key" {
+  match toml_parse("a.b.c = 42") {
+    Ok(doc) => {
+      match toml_get(doc, "a") {
+        Some(a) => {
+          match toml_get(a, "b") {
+            Some(b) => {
+              match toml_get(b, "c") {
+                Some(TInt(v)) => assert(v == 42),
+                _ => assert(false)
+              }
+            },
+            _ => assert(false)
+          }
+        },
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "dotted key with quoted segment" {
+  match toml_parse("server.\"my host\" = \"localhost\"") {
+    Ok(doc) => {
+      match toml_get(doc, "server") {
+        Some(s) => {
+          match toml_get(s, "my host") {
+            Some(TStr(v)) => assert(v == "localhost"),
+            _ => assert(false)
+          }
+        },
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "multiple dotted keys share table" {
+  let input = "fruit.name = \"apple\"\nfruit.color = \"red\""
+  match toml_parse(input) {
+    Ok(doc) => {
+      match toml_get(doc, "fruit") {
+        Some(TTable(entries)) => assert(length(entries) == 2),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+// ============================================================
 // Helpers (until api.hc exists)
 // ============================================================
 
