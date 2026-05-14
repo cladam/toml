@@ -39,3 +39,126 @@ test "TArray holds items" {
     _ => assert(false)
   }
 }
+
+// ============================================================
+// Parser tests — bare key/value pairs
+// ============================================================
+
+test "empty input parses to empty table" {
+  match toml_parse("") {
+    Ok(TTable(entries)) => assert(length(entries) == 0),
+    _ => assert(false)
+  }
+}
+
+test "whitespace-only input" {
+  match toml_parse("  \n\n  ") {
+    Ok(TTable(entries)) => assert(length(entries) == 0),
+    _ => assert(false)
+  }
+}
+
+test "comment-only input" {
+  match toml_parse("# just a comment\n# another") {
+    Ok(TTable(entries)) => assert(length(entries) == 0),
+    _ => assert(false)
+  }
+}
+
+test "bare key with string value" {
+  match toml_parse("name = \"hello\"") {
+    Ok(doc) => {
+      match toml_get(doc, "name") {
+        Some(TStr(v)) => assert(v == "hello"),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "bare key with integer value" {
+  match toml_parse("port = 8080") {
+    Ok(doc) => {
+      match toml_get(doc, "port") {
+        Some(TInt(v)) => assert(v == 8080),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "bare key with boolean value" {
+  match toml_parse("flag = true") {
+    Ok(doc) => {
+      match toml_get(doc, "flag") {
+        Some(TBool(v)) => assert(v == true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "multiple key/value pairs" {
+  let input = "name = \"app\"\nport = 3000\ndebug = false"
+  match toml_parse(input) {
+    Ok(TTable(entries)) => assert(length(entries) == 3),
+    Ok(_) => assert(false),
+    Err(_) => assert(false)
+  }
+}
+
+test "inline comment after value" {
+  match toml_parse("key = \"value\" # comment") {
+    Ok(doc) => {
+      match toml_get(doc, "key") {
+        Some(TStr(v)) => assert(v == "value"),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "escape sequences in strings" {
+  match toml_parse("msg = \"hello\\nworld\"") {
+    Ok(doc) => {
+      match toml_get(doc, "msg") {
+        Some(TStr(v)) => assert(v == "hello\nworld"),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "duplicate key is rejected" {
+  match toml_parse("a = 1\na = 2") {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "duplicate"))
+  }
+}
+
+test "missing value after equals" {
+  match toml_parse("key = ") {
+    Ok(_) => assert(false),
+    Err(_) => assert(true)
+  }
+}
+
+// ============================================================
+// Helpers (until api.hc exists)
+// ============================================================
+
+fun toml_get(t: Toml, key: string) : maybe<Toml> {
+  match t {
+    TTable(entries) => {
+      entries
+        |> find((e) => e.0 == key)
+        |> map_maybe((e) => e.1)
+    },
+    _ => None
+  }
+}
