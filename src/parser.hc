@@ -15,6 +15,9 @@ pub fun is_ws(c: string) : bool =>
 pub fun is_newline(c: string) : bool =>
   c == "\n" || c == "\r"
 
+pub fun is_digit(c: string) : bool =>
+  contains("0123456789", c)
+
 pub fun is_bare_key_char(c: string) : bool =>
   contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_", c)
 
@@ -348,9 +351,15 @@ pub fun has_leading_zero(s: string) : bool {
 
 pub fun parse_value_bare(s: string, pos: int, acc: string) : result<(Toml, int), string> {
   if pos >= str_length(s) { finish_bare(acc, pos) }
+  else if peek(s, pos) == " " && str_length(acc) == 10 && is_date_prefix(acc) && is_digit(peek(s, pos + 1)) {
+    parse_value_bare(s, pos + 1, acc + "T")
+  }
   else if is_ws(peek(s, pos)) || is_newline(peek(s, pos)) || peek(s, pos) == "#" || peek(s, pos) == "," || peek(s, pos) == "]" || peek(s, pos) == "}" { finish_bare(acc, pos) }
   else { parse_value_bare(s, pos + 1, acc + peek(s, pos)) }
 }
+
+pub fun is_date_prefix(s: string) : bool =>
+  str_length(s) == 10 && peek(s, 4) == "-" && peek(s, 7) == "-"
 
 pub fun finish_bare(token: string, pos: int) : result<(Toml, int), string> {
   let cleaned = replace(token, "_", "")
@@ -360,6 +369,7 @@ pub fun finish_bare(token: string, pos: int) : result<(Toml, int), string> {
   else if token == "inf" || token == "+inf" { Ok((TFloat(1.0 / 0.0), pos)) }
   else if token == "-inf" { Ok((TFloat(0.0 - 1.0 / 0.0), pos)) }
   else if token == "nan" || token == "+nan" || token == "-nan" { Ok((TFloat(0.0 / 0.0), pos)) }
+  else if datetime_kind(token) != "invalid" { Ok((TDatetime(token), pos)) }
   else if starts_with(cleaned, "0x") || starts_with(cleaned, "0X") {
     match parse_hex_int(cleaned, 2, 0) {
       Ok(v) => Ok((v, pos)),

@@ -36,6 +36,11 @@ pub fun toml_bool(t: Toml) : maybe<bool> => match t {
   _ => None
 }
 
+pub fun toml_datetime(t: Toml) : maybe<string> => match t {
+  TDatetime(v) => Some(v),
+  _ => None
+}
+
 pub fun toml_list(t: Toml) : maybe<list<Toml>> => match t {
   TArray(items) => Some(items),
   _ => None
@@ -90,6 +95,11 @@ pub fun as_bool(m: maybe<Toml>) : maybe<bool> => match m {
   None => None
 }
 
+pub fun as_datetime(m: maybe<Toml>) : maybe<string> => match m {
+  Some(t) => toml_datetime(t),
+  None => None
+}
+
 pub fun as_list(m: maybe<Toml>) : maybe<list<Toml>> => match m {
   Some(t) => toml_list(t),
   None => None
@@ -120,6 +130,11 @@ pub fun float_or(m: maybe<Toml>, fallback: float) : float => match as_float(m) {
 }
 
 pub fun bool_or(m: maybe<Toml>, fallback: bool) : bool => match as_bool(m) {
+  Some(v) => v,
+  None => fallback
+}
+
+pub fun datetime_or(m: maybe<Toml>, fallback: string) : string => match as_datetime(m) {
   Some(v) => v,
   None => fallback
 }
