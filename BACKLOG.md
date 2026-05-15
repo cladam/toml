@@ -17,19 +17,19 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Quoted keys — literal string keys (`'key' = "value"`)
 - [x] Dotted keys (`physical.color = "orange"`)
 - [x] Dotted keys creating implicit tables
-- [ ] Empty quoted keys (`"" = "blank"`)
+- [x] Empty quoted keys (`"" = "blank"`)
 - [x] Duplicate key rejection
 
 ## Data Types — Strings
 
 - [x] Basic strings (`"hello"`)
 - [x] Escape sequences (`\n`, `\t`, `\r`, `\\`, `\"`, `\b`, `\f`, `\e`)
-- [ ] Unicode escapes (`\xHH`, `\uHHHH`, `\UHHHHHHHH`)
-- [ ] Multi-line basic strings (`"""..."""`)
-- [ ] Multi-line newline trimming (newline after opening `"""`)
-- [ ] Line ending backslash (trailing `\` trims whitespace)
+- [x] Unicode escapes (`\xHH`, `\uHHHH`, `\UHHHHHHHH`)
+- [x] Multi-line basic strings (`"""..."""`)
+- [x] Multi-line newline trimming (newline after opening `"""`)
+- [x] Line ending backslash (trailing `\` trims whitespace)
 - [x] Literal strings (`'...'`)
-- [ ] Multi-line literal strings (`'''...'''`)
+- [x] Multi-line literal strings (`'''...'''`)
 - [x] Reject invalid escape sequences
 - [ ] Reject control characters in strings
 

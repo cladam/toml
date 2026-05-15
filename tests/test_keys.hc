@@ -125,4 +125,15 @@ test "multiple dotted keys share table" {
   }
 }
 
+test "empty quoted key" {
+  match toml_parse("\"\" = \"blank\"") {
+    Ok(doc) => {
+      match toml_get(doc, "") {
+        Some(TStr(v)) => assert(v == "blank"),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
 

@@ -18,6 +18,29 @@ pub fun is_newline(c: string) : bool =>
 pub fun is_bare_key_char(c: string) : bool =>
   contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_", c)
 
+pub fun is_hex_char(c: string) : bool =>
+  contains("0123456789abcdefABCDEF", c)
+
+pub fun hex_digit_val(c: string) : int {
+  if c == "0" { 0 } else if c == "1" { 1 } else if c == "2" { 2 }
+  else if c == "3" { 3 } else if c == "4" { 4 } else if c == "5" { 5 }
+  else if c == "6" { 6 } else if c == "7" { 7 } else if c == "8" { 8 }
+  else if c == "9" { 9 } else if c == "a" || c == "A" { 10 }
+  else if c == "b" || c == "B" { 11 } else if c == "c" || c == "C" { 12 }
+  else if c == "d" || c == "D" { 13 } else if c == "e" || c == "E" { 14 }
+  else { 15 }
+}
+
+// Parse exactly n hex digits starting at pos, return (codepoint, new_pos) or error
+pub fun parse_hex_digits(s: string, pos: int, n: int, acc: int) : result<(int, int), string> {
+  if n == 0 { Ok((acc, pos)) }
+  else if pos >= str_length(s) { Err("unexpected end in unicode escape") }
+  else if is_hex_char(peek(s, pos)) {
+    parse_hex_digits(s, pos + 1, n - 1, acc * 16 + hex_digit_val(peek(s, pos)))
+  }
+  else { Err("invalid hex digit in unicode escape: " + peek(s, pos)) }
+}
+
 // ============================================================
 // Scanning helpers
 // ============================================================
@@ -119,7 +142,17 @@ pub fun scan_escape(s: string, pos: int, acc: string) : result<(string, int), st
   else if peek(s, pos) == "e" { scan_basic_string(s, pos + 1, acc + char_to_string(chr(27))) }
   else if peek(s, pos) == "\\" { scan_basic_string(s, pos + 1, acc + "\\") }
   else if peek(s, pos) == "\"" { scan_basic_string(s, pos + 1, acc + "\"") }
+  else if peek(s, pos) == "x" { scan_key_unicode(s, pos + 1, 2, acc) }
+  else if peek(s, pos) == "u" { scan_key_unicode(s, pos + 1, 4, acc) }
+  else if peek(s, pos) == "U" { scan_key_unicode(s, pos + 1, 8, acc) }
   else { Err("invalid escape sequence: \\" + peek(s, pos)) }
+}
+
+pub fun scan_key_unicode(s: string, pos: int, n: int, acc: string) : result<(string, int), string> {
+  match parse_hex_digits(s, pos, n, 0) {
+    Err(e) => Err(e),
+    Ok((cp, p)) => scan_basic_string(s, p, acc + char_to_string(chr(cp)))
+  }
 }
 
 // ============================================================
@@ -138,7 +171,13 @@ pub fun parse_literal_string(s: string, pos: int, acc: string) : result<(Toml, i
 // ============================================================
 
 pub fun parse_value(s: string, pos: int) : result<(Toml, int), string> {
-  if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, "") }
+  if peek(s, pos) == "\"" && peek(s, pos + 1) == "\"" && peek(s, pos + 2) == "\"" {
+    parse_ml_basic_string(s, pos + 3, "")
+  }
+  else if peek(s, pos) == "\'" && peek(s, pos + 1) == "\'" && peek(s, pos + 2) == "\'" {
+    parse_ml_literal_string(s, pos + 3, "")
+  }
+  else if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, "") }
   else if peek(s, pos) == "\'" { parse_literal_string(s, pos + 1, "") }
   else if peek(s, pos) == "[" { parse_array(s, pos + 1, []) }
   else if peek(s, pos) == "{" { parse_inline_table(s, pos + 1, []) }
@@ -163,7 +202,91 @@ pub fun parse_value_str_esc(s: string, pos: int, acc: string) : result<(Toml, in
   else if peek(s, pos) == "e" { parse_value_str(s, pos + 1, acc + char_to_string(chr(27))) }
   else if peek(s, pos) == "\\" { parse_value_str(s, pos + 1, acc + "\\") }
   else if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, acc + "\"") }
+  else if peek(s, pos) == "x" { value_unicode_esc(s, pos + 1, 2, acc) }
+  else if peek(s, pos) == "u" { value_unicode_esc(s, pos + 1, 4, acc) }
+  else if peek(s, pos) == "U" { value_unicode_esc(s, pos + 1, 8, acc) }
   else { Err("invalid escape sequence: \\" + peek(s, pos)) }
+}
+
+pub fun value_unicode_esc(s: string, pos: int, n: int, acc: string) : result<(Toml, int), string> {
+  match parse_hex_digits(s, pos, n, 0) {
+    Err(e) => Err(e),
+    Ok((cp, p)) => parse_value_str(s, p, acc + char_to_string(chr(cp)))
+  }
+}
+
+// ============================================================
+// Multi-line basic string parsing ("""...""")
+// ============================================================
+
+// Entry: pos is right after the opening """
+// Trim a single newline immediately after opening """
+pub fun parse_ml_basic_string(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { Err("unterminated multi-line basic string") }
+  else if peek(s, pos) == "\n" { scan_ml_basic(s, pos + 1, acc) }
+  else if peek(s, pos) == "\r" && peek(s, pos + 1) == "\n" { scan_ml_basic(s, pos + 2, acc) }
+  else { scan_ml_basic(s, pos, acc) }
+}
+
+pub fun scan_ml_basic(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { Err("unterminated multi-line basic string") }
+  else if peek(s, pos) == "\"" && peek(s, pos + 1) == "\"" && peek(s, pos + 2) == "\"" {
+    Ok((TStr(acc), pos + 3))
+  }
+  else if peek(s, pos) == "\\" { scan_ml_basic_esc(s, pos + 1, acc) }
+  else { scan_ml_basic(s, pos + 1, acc + peek(s, pos)) }
+}
+
+pub fun scan_ml_basic_esc(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { Err("unterminated escape sequence") }
+  else if peek(s, pos) == "n" { scan_ml_basic(s, pos + 1, acc + "\n") }
+  else if peek(s, pos) == "t" { scan_ml_basic(s, pos + 1, acc + "\t") }
+  else if peek(s, pos) == "r" { scan_ml_basic(s, pos + 1, acc + "\r") }
+  else if peek(s, pos) == "b" { scan_ml_basic(s, pos + 1, acc + char_to_string(chr(8))) }
+  else if peek(s, pos) == "f" { scan_ml_basic(s, pos + 1, acc + char_to_string(chr(12))) }
+  else if peek(s, pos) == "e" { scan_ml_basic(s, pos + 1, acc + char_to_string(chr(27))) }
+  else if peek(s, pos) == "\\" { scan_ml_basic(s, pos + 1, acc + "\\") }
+  else if peek(s, pos) == "\"" { scan_ml_basic(s, pos + 1, acc + "\"") }
+  else if peek(s, pos) == "x" { ml_unicode_esc(s, pos + 1, 2, acc) }
+  else if peek(s, pos) == "u" { ml_unicode_esc(s, pos + 1, 4, acc) }
+  else if peek(s, pos) == "U" { ml_unicode_esc(s, pos + 1, 8, acc) }
+  else if is_newline(peek(s, pos)) { scan_ml_basic_line_end(s, pos, acc) }
+  else { Err("invalid escape sequence: \\" + peek(s, pos)) }
+}
+
+pub fun ml_unicode_esc(s: string, pos: int, n: int, acc: string) : result<(Toml, int), string> {
+  match parse_hex_digits(s, pos, n, 0) {
+    Err(e) => Err(e),
+    Ok((cp, p)) => scan_ml_basic(s, p, acc + char_to_string(chr(cp)))
+  }
+}
+
+// Line-ending backslash: skip whitespace + newlines until next non-ws char
+pub fun scan_ml_basic_line_end(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { scan_ml_basic(s, pos, acc) }
+  else if is_ws(peek(s, pos)) || is_newline(peek(s, pos)) { scan_ml_basic_line_end(s, pos + 1, acc) }
+  else { scan_ml_basic(s, pos, acc) }
+}
+
+// ============================================================
+// Multi-line literal string parsing ('''...''')
+// ============================================================
+
+// Entry: pos is right after the opening '''
+// Trim a single newline immediately after opening '''
+pub fun parse_ml_literal_string(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { Err("unterminated multi-line literal string") }
+  else if peek(s, pos) == "\n" { scan_ml_literal(s, pos + 1, acc) }
+  else if peek(s, pos) == "\r" && peek(s, pos + 1) == "\n" { scan_ml_literal(s, pos + 2, acc) }
+  else { scan_ml_literal(s, pos, acc) }
+}
+
+pub fun scan_ml_literal(s: string, pos: int, acc: string) : result<(Toml, int), string> {
+  if pos >= str_length(s) { Err("unterminated multi-line literal string") }
+  else if peek(s, pos) == "\'" && peek(s, pos + 1) == "\'" && peek(s, pos + 2) == "\'" {
+    Ok((TStr(acc), pos + 3))
+  }
+  else { scan_ml_literal(s, pos + 1, acc + peek(s, pos)) }
 }
 
 pub fun parse_value_bare(s: string, pos: int, acc: string) : result<(Toml, int), string> {
