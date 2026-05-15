@@ -168,27 +168,35 @@ pub fun parse_value_bare(s: string, pos: int, acc: string) : result<(Toml, int),
 
 pub fun finish_bare(token: string, pos: int) : result<(Toml, int), string> {
   if token == "" { Err("expected a value at position " + show(pos)) }
-  else { Ok((classify_bare(token), pos)) }
+  else {
+    match classify_bare(token) {
+      Ok(v) => Ok((v, pos)),
+      Err(e) => Err(e)
+    }
+  }
 }
 
-pub fun classify_bare(token: string) : Toml {
-  if token == "true" { TBool(true) }
-  else if token == "false" { TBool(false) }
+pub fun classify_bare(token: string) : result<Toml, string> {
+  if token == "true" { Ok(TBool(true)) }
+  else if token == "false" { Ok(TBool(false)) }
+  else if token == "inf" || token == "+inf" { Ok(TFloat(1.0 / 0.0)) }
+  else if token == "-inf" { Ok(TFloat(0.0 - 1.0 / 0.0)) }
+  else if token == "nan" || token == "+nan" || token == "-nan" { Ok(TFloat(0.0 / 0.0)) }
   else { classify_number(token) }
 }
 
-pub fun classify_number(token: string) : Toml {
+pub fun classify_number(token: string) : result<Toml, string> {
   let cleaned = replace(token, "_", "")
   match parse_int(cleaned) {
-    Some(n) => TInt(n),
+    Some(n) => Ok(TInt(n)),
     None => classify_as_float(cleaned, token)
   }
 }
 
-pub fun classify_as_float(cleaned: string, token: string) : Toml {
+pub fun classify_as_float(cleaned: string, token: string) : result<Toml, string> {
   match parse_float(cleaned) {
-    Some(f) => TFloat(f),
-    None => TStr(token)
+    Some(f) => Ok(TFloat(f)),
+    None => Err("invalid value: " + token)
   }
 }
 

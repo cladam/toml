@@ -2,3 +2,4 @@
 pub import "./toml_types"
 pub import "./parser"
 pub import "./api"
+pub import "./display"

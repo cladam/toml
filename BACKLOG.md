@@ -45,7 +45,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [ ] Floats (exponent `5e+22`, `1e06`)
 - [ ] Floats (fractional + exponent `6.626e-34`)
 - [x] Floats with underscores
-- [-] Special floats (`inf`, `nan` — needs testing for `+inf`, `-inf`, `+nan`, `-nan`)
+- [x] Special floats (`inf`, `nan`, `+inf`, `-inf`, `+nan`, `-nan`)
 
 ## Data Types — Other
 
@@ -127,7 +127,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Pipe-friendly: `toml_ok`, `at`, `nth`, `as_str`, `as_int`, `as_float`, `as_bool`, `as_list`, `as_table`
 - [x] Defaults: `str_or`, `int_or`, `float_or`, `bool_or`
 - [x] Inspection: `has_key`, `keys`, `toml_length`
-- [ ] Display: `toml_show`, `toml_pretty`
+- [x] Display: `toml_show`, `toml_pretty`
 
 ## Tests
 

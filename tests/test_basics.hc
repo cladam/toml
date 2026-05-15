@@ -140,4 +140,85 @@ test "missing value after equals" {
   }
 }
 
+// ============================================================
+// Special float tests
+// ============================================================
 
+test "positive infinity" {
+  match toml_parse("val = inf") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TFloat(_)) => assert(true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "explicit positive infinity" {
+  match toml_parse("val = +inf") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TFloat(_)) => assert(true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "negative infinity" {
+  match toml_parse("val = -inf") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TFloat(_)) => assert(true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "nan value" {
+  match toml_parse("val = nan") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TFloat(_)) => assert(true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "positive nan" {
+  match toml_parse("val = +nan") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TFloat(_)) => assert(true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "negative nan" {
+  match toml_parse("val = -nan") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TFloat(_)) => assert(true),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "invalid bare value is rejected" {
+  match toml_parse("key = notavalue") {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "invalid"))
+  }
+}
