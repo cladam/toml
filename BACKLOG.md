@@ -31,7 +31,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Literal strings (`'...'`)
 - [x] Multi-line literal strings (`'''...'''`)
 - [x] Reject invalid escape sequences
-- [ ] Reject control characters in strings
+- [x] Reject control characters in strings
 
 ## Data Types — Numbers
 
@@ -76,7 +76,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Nested inline tables
 - [x] Dotted keys in inline tables
 - [x] Trailing comma (v1.1.0)
-- [ ] Multi-line inline tables (v1.1.0)
+- [x] Multi-line inline tables (v1.1.0)
 - [ ] Inline table self-containment (no external additions)
 
 ## Arrays
@@ -100,14 +100,14 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 
 - [x] Full-line comments (`# ...`)
 - [x] Inline comments (`key = "val" # ...`)
-- [ ] Reject control characters in comments
+- [x] Reject control characters in comments
 
 ## Whitespace & Structure
 
 - [x] Whitespace around keys and values
 - [x] Whitespace around table headers
 - [x] Empty lines between sections
-- [ ] CRLF and LF newline support
+- [x] CRLF and LF newline support
 - [x] Tab as whitespace
 
 ## Error Handling
@@ -115,7 +115,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Empty input detection
 - [x] Missing value after `=`
 - [x] Unterminated strings
-- [ ] Unterminated arrays/inline tables
+- [x] Unterminated arrays/inline tables
 - [x] Invalid escape sequence reporting
 - [x] Duplicate key error messages
 - [ ] Line number in error messages
@@ -132,7 +132,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 ## Tests
 
 - [x] Key/value pair tests
-- [-] String tests (all four kinds + escapes)
+- [-] String tests (all four kinds + escapes + control char rejection)
 - [x] Number tests (int bases, floats, specials)
 - [x] Boolean tests
 - [x] Date-time tests

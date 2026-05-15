@@ -266,3 +266,43 @@ test "multi-line literal preserves backslashes" {
   }
 }
 
+test "control char rejected in basic string" {
+  let ctrl = char_to_string(chr(7))
+  let input = join(["k = \"hello", ctrl, "world\""], "")
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "control character"))
+  }
+}
+
+test "control char rejected in literal string" {
+  let ctrl = char_to_string(chr(1))
+  let input = join(["k = \'abc", ctrl, "def\'"], "")
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "control character"))
+  }
+}
+
+test "tab allowed in basic string" {
+  let input = "k = \"hello\tworld\""
+  match toml_parse(input) {
+    Ok(doc) => {
+      match toml_get(doc, "k") {
+        Some(TStr(v)) => assert(contains(v, "\t")),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "control char rejected in comment" {
+  let ctrl = char_to_string(chr(7))
+  let input = join(["k = 1 #", ctrl, " comment"], "")
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "control character"))
+  }
+}
+

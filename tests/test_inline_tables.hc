@@ -133,4 +133,16 @@ test "unterminated inline table" {
   }
 }
 
-
+test "multi-line inline table" {
+  let input = "contact = \u007B\nname = \"Alice\",\nemail = \"alice@example.com\"\n\u007D"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let d = Some(doc)
+      let name = str_or(d.at("contact").at("name"), "")
+      let email = str_or(d.at("contact").at("email"), "")
+      assert(name == "Alice")
+      assert(email == "alice@example.com")
+    },
+    Err(_) => assert(false)
+  }
+}

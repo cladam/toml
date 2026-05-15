@@ -18,6 +18,24 @@ pub fun is_newline(c: string) : bool =>
 pub fun is_digit(c: string) : bool =>
   contains("0123456789", c)
 
+pub fun is_control_char(c: string) : bool {
+  if str_length(c) != 1 { false }
+  else {
+    match chars(c) {
+      [ch] => {
+        let n = ord(ch)
+        if n == 9 { false }
+        else if n == 10 { false }
+        else if n == 13 { false }
+        else if n >= 0 && n <= 31 { true }
+        else if n == 127 { true }
+        else { false }
+      },
+      _ => false
+    }
+  }
+}
+
 pub fun is_bare_key_char(c: string) : bool =>
   contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_", c)
 
@@ -61,6 +79,14 @@ pub fun skip_to_eol(s: string, pos: int) : int {
   else { skip_to_eol(s, pos + 1) }
 }
 
+pub fun scan_comment(s: string, pos: int) : result<int, string> {
+  if pos >= str_length(s) { Ok(pos) }
+  else if peek(s, pos) == "\n" { Ok(pos) }
+  else if peek(s, pos) == "\r" { Ok(pos) }
+  else if is_control_char(peek(s, pos)) { Err("control character in comment at position " + show(pos)) }
+  else { scan_comment(s, pos + 1) }
+}
+
 pub fun skip_newline(s: string, pos: int) : int {
   if pos >= str_length(s) { pos }
   else if peek(s, pos) == "\r" && peek(s, pos + 1) == "\n" { pos + 2 }
@@ -83,7 +109,12 @@ pub fun skip_ws_nl_comments(s: string, pos: int) : int {
 pub fun expect_eol(s: string, pos: int) : result<int, string> {
   let p = skip_ws(s, pos)
   if p >= str_length(s) { Ok(p) }
-  else if peek(s, p) == "#" { Ok(skip_newline(s, skip_to_eol(s, p))) }
+  else if peek(s, p) == "#" {
+    match scan_comment(s, p + 1) {
+      Ok(end) => Ok(skip_newline(s, end)),
+      Err(e) => Err(e)
+    }
+  }
   else if is_newline(peek(s, p)) { Ok(skip_newline(s, p)) }
   else { Err("expected newline or comment at position " + show(p)) }
 }
@@ -166,6 +197,7 @@ pub fun parse_literal_string(s: string, pos: int, acc: string) : result<(Toml, i
   if pos >= str_length(s) { Err("unterminated literal string") }
   else if peek(s, pos) == "'" { Ok((TStr(acc), pos + 1)) }
   else if peek(s, pos) == "\n" { Err("newline in literal string at position " + show(pos)) }
+  else if is_control_char(peek(s, pos)) { Err("control character in literal string at position " + show(pos)) }
   else { parse_literal_string(s, pos + 1, acc + peek(s, pos)) }
 }
 
@@ -192,6 +224,7 @@ pub fun parse_value_str(s: string, pos: int, acc: string) : result<(Toml, int), 
   else if peek(s, pos) == "\"" { Ok((TStr(acc), pos + 1)) }
   else if peek(s, pos) == "\\" { parse_value_str_esc(s, pos + 1, acc) }
   else if peek(s, pos) == "\n" { Err("newline in basic string at position " + show(pos)) }
+  else if is_control_char(peek(s, pos)) { Err("control character in string at position " + show(pos)) }
   else { parse_value_str(s, pos + 1, acc + peek(s, pos)) }
 }
 
@@ -237,6 +270,9 @@ pub fun scan_ml_basic(s: string, pos: int, acc: string) : result<(Toml, int), st
     Ok((TStr(acc), pos + 3))
   }
   else if peek(s, pos) == "\\" { scan_ml_basic_esc(s, pos + 1, acc) }
+  else if peek(s, pos) == "\r" && peek(s, pos + 1) == "\n" { scan_ml_basic(s, pos + 2, acc + "\n") }
+  else if peek(s, pos) == "\r" { scan_ml_basic(s, pos + 1, acc + "\n") }
+  else if is_control_char(peek(s, pos)) { Err("control character in multi-line string at position " + show(pos)) }
   else { scan_ml_basic(s, pos + 1, acc + peek(s, pos)) }
 }
 
@@ -289,6 +325,9 @@ pub fun scan_ml_literal(s: string, pos: int, acc: string) : result<(Toml, int), 
   else if peek(s, pos) == "\'" && peek(s, pos + 1) == "\'" && peek(s, pos + 2) == "\'" {
     Ok((TStr(acc), pos + 3))
   }
+  else if peek(s, pos) == "\r" && peek(s, pos + 1) == "\n" { scan_ml_literal(s, pos + 2, acc + "\n") }
+  else if peek(s, pos) == "\r" { scan_ml_literal(s, pos + 1, acc + "\n") }
+  else if is_control_char(peek(s, pos)) { Err("control character in multi-line literal string at position " + show(pos)) }
   else { scan_ml_literal(s, pos + 1, acc + peek(s, pos)) }
 }
 
