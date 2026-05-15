@@ -138,6 +138,7 @@ pub fun parse_value(s: string, pos: int) : result<(Toml, int), string> {
   if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, "") }
   else if peek(s, pos) == "\'" { parse_literal_string(s, pos + 1, "") }
   else if peek(s, pos) == "[" { parse_array(s, pos + 1, []) }
+  else if peek(s, pos) == "{" { parse_inline_table(s, pos + 1, []) }
   else { parse_value_bare(s, pos, "") }
 }
 
@@ -208,6 +209,72 @@ pub fun parse_array(s: string, pos: int, items: list<Toml>) : result<(Toml, int)
         else if peek(s, p3) == "]" { Ok((TArray(items + [val]), p3 + 1)) }
         else if peek(s, p3) == "," { parse_array(s, p3 + 1, items + [val]) }
         else { Err("expected ',' or ']' in array at position " + show(p3)) }
+      }
+    }
+  }
+}
+
+// ============================================================
+// Inline table parsing
+// ============================================================
+
+pub fun parse_inline_table(s: string, pos: int, entries: list<(string, Toml)>) : result<(Toml, int), string> {
+  let p = skip_ws_nl_comments(s, pos)
+  if p >= str_length(s) { Err("unterminated inline table") }
+  else if peek(s, p) == "}" { Ok((TTable(entries), p + 1)) }
+  else {
+    match parse_inline_kv(s, p) {
+      Err(e) => Err(e),
+      Ok((key, val, p2)) => {
+        if any(entries, (e) => e.0 == key) { Err("duplicate key: " + key) }
+        else {
+          let new_entries = entries + [(key, val)]
+          let p3 = skip_ws_nl_comments(s, p2)
+          if p3 >= str_length(s) { Err("unterminated inline table") }
+          else if peek(s, p3) == "}" { Ok((TTable(new_entries), p3 + 1)) }
+          else if peek(s, p3) == "," { parse_inline_table(s, p3 + 1, new_entries) }
+          else { Err("expected ',' or '}' in inline table at position " + show(p3)) }
+        }
+      }
+    }
+  }
+}
+
+pub fun parse_inline_kv(s: string, pos: int) : result<(string, Toml, int), string> {
+  match parse_dotted_key(s, pos) {
+    Err(e) => Err(e),
+    Ok((keys, p1)) => {
+      let p2 = skip_ws(s, p1)
+      if peek(s, p2) != "=" { Err("expected '=' in inline table at position " + show(p2)) }
+      else {
+        let p3 = skip_ws(s, p2 + 1)
+        match parse_value(s, p3) {
+          Err(e) => Err(e),
+          Ok((val, p4)) => {
+            match keys {
+              [single] => Ok((single, val, p4)),
+              _ => {
+                match build_nested(keys, val) {
+                  Ok((k, nested)) => Ok((k, nested, p4)),
+                  Err(e) => Err(e)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+pub fun build_nested(keys: list<string>, val: Toml) : result<(string, Toml), string> {
+  match keys {
+    [] => Err("empty key path"),
+    [single] => Ok((single, val)),
+    [first, ..rest] => {
+      match build_nested(rest, val) {
+        Ok((k, inner)) => Ok((first, TTable([(k, inner)]))),
+        Err(e) => Err(e)
       }
     }
   }
