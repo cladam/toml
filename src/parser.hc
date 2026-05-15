@@ -774,31 +774,55 @@ pub fun parse_header_key_rest(s: string, pos: int, keys: list<string>) : result<
 // ============================================================
 
 pub fun toml_parse(input: string) : result<Toml, string> {
-  parse_doc(input, 0, [], [], [], [])
+  parse_doc(input, 0, [], [], [], [], [])
 }
 
 pub fun path_key(path: list<string>) : string =>
   join(path, ".")
 
+pub fun extend_path_key(acc: string, key: string) : string =>
+  if acc == "" { key } else { acc + "." + key }
+
+pub fun has_inline_prefix(remaining: list<string>, acc: string, inlines: list<string>) : bool {
+  match remaining {
+    [] => false,
+    [key, ..rest] => {
+      let pk = extend_path_key(acc, key)
+      if any(inlines, (i) => i == pk) { true }
+      else { has_inline_prefix(rest, pk, inlines) }
+    }
+  }
+}
+
+pub fun maybe_add_inline(value: Toml, pk: string, inlines: list<string>) : list<string> {
+  match value {
+    TTable(_) => [pk] + inlines,
+    _ => inlines
+  }
+}
+
 // path = current table path (e.g. ["server"] when inside [server])
 // defined = list of explicitly-defined table path keys
 // aot = list of array-of-tables path keys
-pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
+pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   let p = skip_ws_nl_comments(input, pos)
   if p >= str_length(input) { Ok(TTable(root)) }
   else if peek(input, p) == "[" && peek(input, p + 1) == "[" {
-    parse_doc_array_table(input, p, root, defined, aot)
+    parse_doc_array_table(input, p, root, defined, aot, inlines)
   }
-  else if peek(input, p) == "[" { parse_doc_table(input, p, root, defined, aot) }
-  else { parse_doc_keyval(input, p, path, root, defined, aot) }
+  else if peek(input, p) == "[" { parse_doc_table(input, p, root, defined, aot, inlines) }
+  else { parse_doc_keyval(input, p, path, root, defined, aot, inlines) }
 }
 
-pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
+pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   match parse_table_header(input, pos) {
     Err(e) => Err(e),
     Ok((path, p)) => {
       let pk = path_key(path)
-      if any(defined, (d) => d == pk) {
+      if has_inline_prefix(path, "", inlines) {
+        Err("cannot add to inline table: " + pk)
+      }
+      else if any(defined, (d) => d == pk) {
         Err("duplicate table: [" + pk + "]")
       }
       else {
@@ -807,7 +831,7 @@ pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, def
           Ok(p2) => {
             match ensure_table(root, path) {
               Err(e) => Err(e),
-              Ok(new_root) => parse_doc(input, p2, path, new_root, [pk] + defined, aot)
+              Ok(new_root) => parse_doc(input, p2, path, new_root, [pk] + defined, aot, inlines)
             }
           }
         }
@@ -819,12 +843,15 @@ pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, def
 pub fun clear_sub_defined(defined: list<string>, pfx: string) : list<string> =>
   filter(defined, (d) => !starts_with(d, pfx))
 
-pub fun parse_doc_array_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
+pub fun parse_doc_array_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   match parse_array_table_header(input, pos) {
     Err(e) => Err(e),
     Ok((path, p)) => {
       let pk = path_key(path)
-      if any(defined, (d) => d == pk) {
+      if has_inline_prefix(path, "", inlines) {
+        Err("cannot add to inline table: " + pk)
+      }
+      else if any(defined, (d) => d == pk) {
         Err("cannot define [[" + pk + "]] — already defined as [" + pk + "]")
       }
       else {
@@ -833,7 +860,7 @@ pub fun parse_doc_array_table(input: string, pos: int, root: list<(string, Toml)
           Ok(p2) => {
             match array_table_append(root, path, aot, pk) {
               Err(e) => Err(e),
-              Ok(new_root) => parse_doc(input, p2, path, new_root, clear_sub_defined(defined, pk + "."), [pk] + aot)
+              Ok(new_root) => parse_doc(input, p2, path, new_root, clear_sub_defined(defined, pk + "."), [pk] + aot, clear_sub_defined(inlines, pk + "."))
             }
           }
         }
@@ -860,7 +887,7 @@ pub fun parse_dotted_key_rest(s: string, pos: int, keys: list<string>) : result<
   }
 }
 
-pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
+pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   match parse_dotted_key(input, pos) {
     Err(e) => Err(e),
     Ok((keys, p1)) => {
@@ -872,12 +899,19 @@ pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list
           Err(e) => Err(e),
           Ok((value, p4)) => {
             let full_path = path + keys
-            match table_set(root, full_path, value) {
-              Err(e) => Err(e),
-              Ok(new_root) => {
-                match expect_eol(input, p4) {
-                  Err(e) => Err(e),
-                  Ok(p5) => parse_doc(input, p5, path, new_root, defined, aot)
+            let fpk = path_key(full_path)
+            let new_inlines = maybe_add_inline(value, fpk, inlines)
+            if has_inline_prefix(full_path, "", inlines) {
+              Err("cannot add to inline table: " + fpk)
+            }
+            else {
+              match table_set(root, full_path, value) {
+                Err(e) => Err(e),
+                Ok(new_root) => {
+                  match expect_eol(input, p4) {
+                    Err(e) => Err(e),
+                    Ok(p5) => parse_doc(input, p5, path, new_root, defined, aot, new_inlines)
+                  }
                 }
               }
             }

@@ -132,7 +132,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 ## Tests
 
 - [x] Key/value pair tests
-- [-] String tests (all four kinds + escapes + control char rejection)
+- [x] String tests (all four kinds + escapes + control char rejection)
 - [x] Number tests (int bases, floats, specials)
 - [x] Boolean tests
 - [x] Date-time tests

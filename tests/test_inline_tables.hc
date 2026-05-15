@@ -146,3 +146,39 @@ test "multi-line inline table" {
     Err(_) => assert(false)
   }
 }
+
+test "inline table rejects dotted key addition" {
+  let input = "a = \u007Bb = 1\u007D\na.c = 2"
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "inline"))
+  }
+}
+
+test "inline table rejects table header" {
+  let input = "a = \u007Bb = 1\u007D\n[a]\nc = 2"
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "inline"))
+  }
+}
+
+test "inline table rejects sub-table header" {
+  let input = "a = \u007Bb = 1\u007D\n[a.c]"
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "inline"))
+  }
+}
+
+test "sibling keys alongside inline table allowed" {
+  let input = "a = \u007Bb = 1\u007D\nc = 2"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let d = Some(doc)
+      let r = int_or(d.at("c"), 0)
+      assert(r == 2)
+    },
+    Err(_) => assert(false)
+  }
+}
