@@ -90,11 +90,11 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 
 ## Array of Tables
 
-- [ ] Basic array of tables (`[[products]]`)
-- [ ] Nested array of tables (`[[fruits.varieties]]`)
-- [ ] Sub-tables under array elements (`[fruits.physical]`)
-- [ ] Static array conflict rejection (`fruits = []` then `[[fruits]]`)
-- [ ] Table/array-of-tables conflict rejection
+- [x] Basic array of tables (`[[products]]`)
+- [x] Nested array of tables (`[[fruits.varieties]]`)
+- [x] Sub-tables under array elements (`[fruits.physical]`)
+- [x] Static array conflict rejection (`fruits = []` then `[[fruits]]`)
+- [x] Table/array-of-tables conflict rejection
 
 ## Comments
 
@@ -139,7 +139,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Table tests (standard, nested, implicit)
 - [x] Inline table tests
 - [x] Array tests
-- [ ] Array of tables tests
+- [x] Array of tables tests
 - [x] Comment tests
 - [x] API tests (navigation, defaults, inspection)
 - [x] Error tests (malformed input)
