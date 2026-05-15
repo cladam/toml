@@ -97,4 +97,55 @@ test "empty table" {
   }
 }
 
+// ============================================================
+// Table validation tests
+// ============================================================
 
+test "duplicate table rejected" {
+  let input = "[a]\nkey = 1\n[a]\nother = 2"
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "duplicate table"))
+  }
+}
+
+test "duplicate nested table rejected" {
+  let input = "[a.b]\nkey = 1\n[a.b]\nother = 2"
+  match toml_parse(input) {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "duplicate table"))
+  }
+}
+
+test "out-of-order super-table allowed" {
+  let input = "[a.b.c]\nx = 1\n[a]\ny = 2"
+  match toml_parse(input) {
+    Ok(doc) => {
+      match toml_get(doc, "a") {
+        Some(TTable(entries)) => assert(length(entries) == 2),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "out-of-order super-table with value access" {
+  let input = "[a.b]\nx = 1\n[a]\ny = 2"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let a = Some(doc).at("a")
+      let y_val = a.at("y")
+      match y_val {
+        Some(TInt(v)) => assert(v == 2),
+        _ => assert(false)
+      }
+      let bx = a.at("b").at("x")
+      match bx {
+        Some(TInt(v)) => assert(v == 1),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}

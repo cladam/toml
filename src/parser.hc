@@ -597,27 +597,37 @@ pub fun parse_header_key_rest(s: string, pos: int, keys: list<string>) : result<
 // ============================================================
 
 pub fun toml_parse(input: string) : result<Toml, string> {
-  parse_doc(input, 0, [], [])
+  parse_doc(input, 0, [], [], [])
 }
+
+pub fun path_key(path: list<string>) : string =>
+  join(path, ".")
 
 // path = current table path (e.g. ["server"] when inside [server])
-pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
+// defined = list of explicitly-defined table path keys
+pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>) : result<Toml, string> {
   let p = skip_ws_nl_comments(input, pos)
   if p >= str_length(input) { Ok(TTable(root)) }
-  else if peek(input, p) == "[" { parse_doc_table(input, p, root) }
-  else { parse_doc_keyval(input, p, path, root) }
+  else if peek(input, p) == "[" { parse_doc_table(input, p, root, defined) }
+  else { parse_doc_keyval(input, p, path, root, defined) }
 }
 
-pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>) : result<Toml, string> {
+pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>) : result<Toml, string> {
   match parse_table_header(input, pos) {
     Err(e) => Err(e),
     Ok((path, p)) => {
-      match expect_eol(input, p) {
-        Err(e) => Err(e),
-        Ok(p2) => {
-          match ensure_table(root, path) {
-            Err(e) => Err(e),
-            Ok(new_root) => parse_doc(input, p2, path, new_root)
+      let pk = path_key(path)
+      if any(defined, (d) => d == pk) {
+        Err("duplicate table: [" + pk + "]")
+      }
+      else {
+        match expect_eol(input, p) {
+          Err(e) => Err(e),
+          Ok(p2) => {
+            match ensure_table(root, path) {
+              Err(e) => Err(e),
+              Ok(new_root) => parse_doc(input, p2, path, new_root, [pk] + defined)
+            }
           }
         }
       }
@@ -643,7 +653,7 @@ pub fun parse_dotted_key_rest(s: string, pos: int, keys: list<string>) : result<
   }
 }
 
-pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>) : result<Toml, string> {
+pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>) : result<Toml, string> {
   match parse_dotted_key(input, pos) {
     Err(e) => Err(e),
     Ok((keys, p1)) => {
@@ -660,7 +670,7 @@ pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list
               Ok(new_root) => {
                 match expect_eol(input, p4) {
                   Err(e) => Err(e),
-                  Ok(p5) => parse_doc(input, p5, path, new_root)
+                  Ok(p5) => parse_doc(input, p5, path, new_root, defined)
                 }
               }
             }

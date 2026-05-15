@@ -66,9 +66,9 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Implicit super-table creation
 - [x] Dotted keys inside tables
 - [x] Empty tables
-- [ ] Duplicate table rejection
+- [x] Duplicate table rejection
 - [x] Table/key conflict detection (can't redefine key as table)
-- [ ] Out-of-order super-table definition (`[x.y.z]` then `[x]`)
+- [x] Out-of-order super-table definition (`[x.y.z]` then `[x]`)
 
 ## Inline Tables
 
