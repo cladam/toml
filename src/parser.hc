@@ -7,7 +7,7 @@ import "./toml_types"
 
 pub fun peek(s: string, pos: int) : string =>
   if pos >= str_length(s) { "" }
-  else { s[pos:pos + 1] }
+  else { s[pos: pos + 1] }
 
 pub fun is_ws(c: string) : bool =>
   c == " " || c == "\t"
@@ -75,7 +75,7 @@ pub fun scan_bare_key(s: string, pos: int) : int {
 pub fun parse_bare_key(s: string, pos: int) : result<(string, int), string> {
   let end_pos = scan_bare_key(s, pos)
   if end_pos == pos { Err("expected a key at position " + show(pos)) }
-  else { Ok((s[pos:end_pos], end_pos)) }
+  else { Ok((s[pos: end_pos], end_pos)) }
 }
 
 // Dispatch: bare key, "quoted key", or 'literal key'
@@ -136,7 +136,8 @@ pub fun parse_literal_string(s: string, pos: int, acc: string) : result<(Toml, i
 
 pub fun parse_value(s: string, pos: int) : result<(Toml, int), string> {
   if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, "") }
-  else if peek(s, pos) == "'" { parse_literal_string(s, pos + 1, "") }
+  else if peek(s, pos) == "\'" { parse_literal_string(s, pos + 1, "") }
+  else if peek(s, pos) == "[" { parse_array(s, pos + 1, []) }
   else { parse_value_bare(s, pos, "") }
 }
 
@@ -169,7 +170,6 @@ pub fun finish_bare(token: string, pos: int) : result<(Toml, int), string> {
   else { Ok((classify_bare(token), pos)) }
 }
 
-
 pub fun classify_bare(token: string) : Toml {
   if token == "true" { TBool(true) }
   else if token == "false" { TBool(false) }
@@ -188,6 +188,28 @@ pub fun classify_as_float(cleaned: string, token: string) : Toml {
   match parse_float(cleaned) {
     Some(f) => TFloat(f),
     None => TStr(token)
+  }
+}
+
+// ============================================================
+// Array parsing
+// ============================================================
+
+pub fun parse_array(s: string, pos: int, items: list<Toml>) : result<(Toml, int), string> {
+  let p = skip_ws_nl_comments(s, pos)
+  if p >= str_length(s) { Err("unterminated array") }
+  else if peek(s, p) == "]" { Ok((TArray(items), p + 1)) }
+  else {
+    match parse_value(s, p) {
+      Err(e) => Err(e),
+      Ok((val, p2)) => {
+        let p3 = skip_ws_nl_comments(s, p2)
+        if p3 >= str_length(s) { Err("unterminated array") }
+        else if peek(s, p3) == "]" { Ok((TArray(items + [val]), p3 + 1)) }
+        else if peek(s, p3) == "," { parse_array(s, p3 + 1, items + [val]) }
+        else { Err("expected ',' or ']' in array at position " + show(p3)) }
+      }
+    }
   }
 }
 
