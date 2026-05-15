@@ -77,7 +77,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Dotted keys in inline tables
 - [x] Trailing comma (v1.1.0)
 - [x] Multi-line inline tables (v1.1.0)
-- [ ] Inline table self-containment (no external additions)
+- [x] Inline table self-containment (no external additions)
 
 ## Arrays
 
@@ -118,7 +118,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Unterminated arrays/inline tables
 - [x] Invalid escape sequence reporting
 - [x] Duplicate key error messages
-- [ ] Line number in error messages
+- [x] Line number in error messages
 
 ## API
 

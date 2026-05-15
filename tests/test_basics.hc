@@ -222,3 +222,17 @@ test "invalid bare value is rejected" {
     Err(e) => assert(contains(e, "invalid"))
   }
 }
+
+test "error includes line number" {
+  match toml_parse("a = 1\nb = 2\na = 3") {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "line 3"))
+  }
+}
+
+test "error on line 1" {
+  match toml_parse("a = 1\na = 2") {
+    Ok(_) => assert(false),
+    Err(e) => assert(contains(e, "line 2"))
+  }
+}

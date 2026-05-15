@@ -780,6 +780,24 @@ pub fun toml_parse(input: string) : result<Toml, string> {
 pub fun path_key(path: list<string>) : string =>
   join(path, ".")
 
+// ============================================================
+// Line number helpers
+// ============================================================
+
+pub fun count_newlines(input: string, i: int, end_pos: int, line: int) : int {
+  if i >= end_pos { line }
+  else if peek(input, i) == "\r" && peek(input, i + 1) == "\n" {
+    count_newlines(input, i + 2, end_pos, line + 1)
+  }
+  else if peek(input, i) == "\n" {
+    count_newlines(input, i + 1, end_pos, line + 1)
+  }
+  else if peek(input, i) == "\r" {
+    count_newlines(input, i + 1, end_pos, line + 1)
+  }
+  else { count_newlines(input, i + 1, end_pos, line) }
+}
+
 pub fun extend_path_key(acc: string, key: string) : string =>
   if acc == "" { key } else { acc + "." + key }
 
@@ -816,21 +834,21 @@ pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(strin
 
 pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   match parse_table_header(input, pos) {
-    Err(e) => Err(e),
+    Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
     Ok((path, p)) => {
       let pk = path_key(path)
       if has_inline_prefix(path, "", inlines) {
-        Err("cannot add to inline table: " + pk)
+        Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + "cannot add to inline table: " + pk)
       }
       else if any(defined, (d) => d == pk) {
-        Err("duplicate table: [" + pk + "]")
+        Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + "duplicate table: [" + pk + "]")
       }
       else {
         match expect_eol(input, p) {
-          Err(e) => Err(e),
+          Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
           Ok(p2) => {
             match ensure_table(root, path) {
-              Err(e) => Err(e),
+              Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
               Ok(new_root) => parse_doc(input, p2, path, new_root, [pk] + defined, aot, inlines)
             }
           }
@@ -845,21 +863,21 @@ pub fun clear_sub_defined(defined: list<string>, pfx: string) : list<string> =>
 
 pub fun parse_doc_array_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   match parse_array_table_header(input, pos) {
-    Err(e) => Err(e),
+    Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
     Ok((path, p)) => {
       let pk = path_key(path)
       if has_inline_prefix(path, "", inlines) {
-        Err("cannot add to inline table: " + pk)
+        Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + "cannot add to inline table: " + pk)
       }
       else if any(defined, (d) => d == pk) {
-        Err("cannot define [[" + pk + "]] — already defined as [" + pk + "]")
+        Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + "cannot define [[" + pk + "]] — already defined as [" + pk + "]")
       }
       else {
         match expect_eol(input, p) {
-          Err(e) => Err(e),
+          Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
           Ok(p2) => {
             match array_table_append(root, path, aot, pk) {
-              Err(e) => Err(e),
+              Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
               Ok(new_root) => parse_doc(input, p2, path, new_root, clear_sub_defined(defined, pk + "."), [pk] + aot, clear_sub_defined(inlines, pk + "."))
             }
           }
@@ -889,27 +907,27 @@ pub fun parse_dotted_key_rest(s: string, pos: int, keys: list<string>) : result<
 
 pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>, inlines: list<string>) : result<Toml, string> {
   match parse_dotted_key(input, pos) {
-    Err(e) => Err(e),
+    Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
     Ok((keys, p1)) => {
       let p2 = skip_ws(input, p1)
-      if peek(input, p2) != "=" { Err("expected '=' at position " + show(p2)) }
+      if peek(input, p2) != "=" { Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + "expected '=' after key") }
       else {
         let p3 = skip_ws(input, p2 + 1)
         match parse_value(input, p3) {
-          Err(e) => Err(e),
+          Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
           Ok((value, p4)) => {
             let full_path = path + keys
             let fpk = path_key(full_path)
             let new_inlines = maybe_add_inline(value, fpk, inlines)
             if has_inline_prefix(full_path, "", inlines) {
-              Err("cannot add to inline table: " + fpk)
+              Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + "cannot add to inline table: " + fpk)
             }
             else {
               match table_set(root, full_path, value) {
-                Err(e) => Err(e),
+                Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
                 Ok(new_root) => {
                   match expect_eol(input, p4) {
-                    Err(e) => Err(e),
+                    Err(e) => Err("line " + show(count_newlines(input, 0, pos, 1)) + ": " + e),
                     Ok(p5) => parse_doc(input, p5, path, new_root, defined, aot, new_inlines)
                   }
                 }
