@@ -123,10 +123,10 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 ## API
 
 - [x] `toml_parse(input) : result<Toml, string>`
-- [ ] Direct accessors: `toml_get`, `toml_str`, `toml_int`, `toml_float`, `toml_bool`, `toml_list`, `toml_table`
-- [ ] Pipe-friendly: `toml_ok`, `at`, `nth`, `as_str`, `as_int`, `as_float`, `as_bool`, `as_list`, `as_table`
-- [ ] Defaults: `str_or`, `int_or`, `float_or`, `bool_or`
-- [ ] Inspection: `has_key`, `keys`, `toml_length`
+- [x] Direct accessors: `toml_get`, `toml_str`, `toml_int`, `toml_float`, `toml_bool`, `toml_list`, `toml_table`
+- [x] Pipe-friendly: `toml_ok`, `at`, `nth`, `as_str`, `as_int`, `as_float`, `as_bool`, `as_list`, `as_table`
+- [x] Defaults: `str_or`, `int_or`, `float_or`, `bool_or`
+- [x] Inspection: `has_key`, `keys`, `toml_length`
 - [ ] Display: `toml_show`, `toml_pretty`
 
 ## Tests

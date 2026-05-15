@@ -109,17 +109,4 @@ test "unterminated array" {
   }
 }
 
-// ============================================================
-// Helpers (until api.hc exists)
-// ============================================================
 
-fun toml_get(t: Toml, key: string) : maybe<Toml> {
-  match t {
-    TTable(entries) => {
-      entries
-        |> find((e) => e.0 == key)
-        |> map_maybe((e) => e.1)
-    },
-    _ => None
-  }
-}
