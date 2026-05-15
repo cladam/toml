@@ -523,10 +523,36 @@ pub fun table_set_nested(entries: list<(string, Toml)>, key: string, rest: list<
         Err(e) => Err(e)
       }
     },
+    Some(TArray(items)) => {
+      match last_table_set(items, rest, value) {
+        Ok(new_items) => Ok(table_replace(entries, key, TArray(new_items))),
+        Err(e) => Err(e)
+      }
+    },
     Some(_) => Err("key " + key + " is not a table"),
     None => {
       match table_set([], rest, value) {
         Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
+        Err(e) => Err(e)
+      }
+    }
+  }
+}
+
+// Set a value in the last table of an array of tables
+pub fun last_table_set(items: list<Toml>, path: list<string>, value: Toml) : result<list<Toml>, string> {
+  match items {
+    [] => Err("empty array of tables"),
+    [TTable(sub)] => {
+      match table_set(sub, path, value) {
+        Ok(new_sub) => Ok([TTable(new_sub)]),
+        Err(e) => Err(e)
+      }
+    },
+    [other] => Err("last element is not a table"),
+    [head, ..rest] => {
+      match last_table_set(rest, path, value) {
+        Ok(new_rest) => Ok([head] + new_rest),
         Err(e) => Err(e)
       }
     }
@@ -545,6 +571,12 @@ pub fun ensure_table(entries: list<(string, Toml)>, path: list<string>) : result
             Err(e) => Err(e)
           }
         },
+        Some(TArray(items)) => {
+          match last_table_ensure(items, rest) {
+            Ok(new_items) => Ok(table_replace(entries, key, TArray(new_items))),
+            Err(e) => Err(e)
+          }
+        },
         Some(_) => Err("key " + key + " is not a table"),
         None => {
           match ensure_table([], rest) {
@@ -552,6 +584,87 @@ pub fun ensure_table(entries: list<(string, Toml)>, path: list<string>) : result
             Err(e) => Err(e)
           }
         }
+      }
+    }
+  }
+}
+
+// Ensure a table path exists in the last element of an array of tables
+pub fun last_table_ensure(items: list<Toml>, path: list<string>) : result<list<Toml>, string> {
+  match items {
+    [] => Err("empty array of tables"),
+    [TTable(sub)] => {
+      match ensure_table(sub, path) {
+        Ok(new_sub) => Ok([TTable(new_sub)]),
+        Err(e) => Err(e)
+      }
+    },
+    [other] => Err("last element is not a table"),
+    [head, ..rest] => {
+      match last_table_ensure(rest, path) {
+        Ok(new_rest) => Ok([head] + new_rest),
+        Err(e) => Err(e)
+      }
+    }
+  }
+}
+
+// Append a new empty table to an array of tables at the given path
+pub fun array_table_append(entries: list<(string, Toml)>, path: list<string>, aot: list<string>, full_pk: string) : result<list<(string, Toml)>, string> {
+  match path {
+    [] => Err("empty array-of-tables path"),
+    [key] => {
+      match table_find(entries, key) {
+        Some(TArray(items)) => {
+          if any(aot, (a) => a == full_pk) { Ok(table_replace(entries, key, TArray(items + [TTable([])]))) }
+          else { Err("key " + key + " is already defined as a static array") }
+        },
+        Some(TTable(_)) => Err("key " + key + " is a table, not an array of tables"),
+        Some(_) => Err("key " + key + " is not an array of tables"),
+        None => Ok(entries + [(key, TArray([TTable([])]))])
+      }
+    },
+    [key, ..rest] => {
+      match table_find(entries, key) {
+        Some(TTable(sub)) => {
+          match array_table_append(sub, rest, aot, full_pk) {
+            Ok(new_sub) => Ok(table_replace(entries, key, TTable(new_sub))),
+            Err(e) => Err(e)
+          }
+        },
+        Some(TArray(items)) => {
+          match last_table_array_append(items, rest, aot, full_pk) {
+            Ok(new_items) => Ok(table_replace(entries, key, TArray(new_items))),
+            Err(e) => Err(e)
+          }
+        },
+        Some(_) => Err("key " + key + " is not a table"),
+        None => {
+          match array_table_append([], rest, aot, full_pk) {
+            Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
+            Err(e) => Err(e)
+          }
+        }
+      }
+    }
+  }
+}
+
+// Append into the last table of an array of tables
+pub fun last_table_array_append(items: list<Toml>, path: list<string>, aot: list<string>, full_pk: string) : result<list<Toml>, string> {
+  match items {
+    [] => Err("empty array of tables"),
+    [TTable(sub)] => {
+      match array_table_append(sub, path, aot, full_pk) {
+        Ok(new_sub) => Ok([TTable(new_sub)]),
+        Err(e) => Err(e)
+      }
+    },
+    [other] => Err("last element is not a table"),
+    [head, ..rest] => {
+      match last_table_array_append(rest, path, aot, full_pk) {
+        Ok(new_rest) => Ok([head] + new_rest),
+        Err(e) => Err(e)
       }
     }
   }
@@ -570,6 +683,21 @@ pub fun parse_table_header(s: string, pos: int) : result<(list<string>, int), st
       let p3 = skip_ws(s, p2)
       if peek(s, p3) != "]" { Err("expected ']' at position " + show(p3)) }
       else { Ok((keys, p3 + 1)) }
+    }
+  }
+}
+
+// Parse [[key.path]] — pos is at first '['
+pub fun parse_array_table_header(s: string, pos: int) : result<(list<string>, int), string> {
+  // pos is at first '[', pos+1 is at second '['
+  let p = skip_ws(s, pos + 2)
+  match parse_header_key(s, p) {
+    Err(e) => Err(e),
+    Ok((keys, p2)) => {
+      let p3 = skip_ws(s, p2)
+      if peek(s, p3) != "]" { Err("expected ']]' at position " + show(p3)) }
+      else if peek(s, p3 + 1) != "]" { Err("expected ']]' at position " + show(p3)) }
+      else { Ok((keys, p3 + 2)) }
     }
   }
 }
@@ -597,7 +725,7 @@ pub fun parse_header_key_rest(s: string, pos: int, keys: list<string>) : result<
 // ============================================================
 
 pub fun toml_parse(input: string) : result<Toml, string> {
-  parse_doc(input, 0, [], [], [])
+  parse_doc(input, 0, [], [], [], [])
 }
 
 pub fun path_key(path: list<string>) : string =>
@@ -605,14 +733,18 @@ pub fun path_key(path: list<string>) : string =>
 
 // path = current table path (e.g. ["server"] when inside [server])
 // defined = list of explicitly-defined table path keys
-pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>) : result<Toml, string> {
+// aot = list of array-of-tables path keys
+pub fun parse_doc(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
   let p = skip_ws_nl_comments(input, pos)
   if p >= str_length(input) { Ok(TTable(root)) }
-  else if peek(input, p) == "[" { parse_doc_table(input, p, root, defined) }
-  else { parse_doc_keyval(input, p, path, root, defined) }
+  else if peek(input, p) == "[" && peek(input, p + 1) == "[" {
+    parse_doc_array_table(input, p, root, defined, aot)
+  }
+  else if peek(input, p) == "[" { parse_doc_table(input, p, root, defined, aot) }
+  else { parse_doc_keyval(input, p, path, root, defined, aot) }
 }
 
-pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>) : result<Toml, string> {
+pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
   match parse_table_header(input, pos) {
     Err(e) => Err(e),
     Ok((path, p)) => {
@@ -626,7 +758,33 @@ pub fun parse_doc_table(input: string, pos: int, root: list<(string, Toml)>, def
           Ok(p2) => {
             match ensure_table(root, path) {
               Err(e) => Err(e),
-              Ok(new_root) => parse_doc(input, p2, path, new_root, [pk] + defined)
+              Ok(new_root) => parse_doc(input, p2, path, new_root, [pk] + defined, aot)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+pub fun clear_sub_defined(defined: list<string>, pfx: string) : list<string> =>
+  filter(defined, (d) => !starts_with(d, pfx))
+
+pub fun parse_doc_array_table(input: string, pos: int, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
+  match parse_array_table_header(input, pos) {
+    Err(e) => Err(e),
+    Ok((path, p)) => {
+      let pk = path_key(path)
+      if any(defined, (d) => d == pk) {
+        Err("cannot define [[" + pk + "]] — already defined as [" + pk + "]")
+      }
+      else {
+        match expect_eol(input, p) {
+          Err(e) => Err(e),
+          Ok(p2) => {
+            match array_table_append(root, path, aot, pk) {
+              Err(e) => Err(e),
+              Ok(new_root) => parse_doc(input, p2, path, new_root, clear_sub_defined(defined, pk + "."), [pk] + aot)
             }
           }
         }
@@ -653,7 +811,7 @@ pub fun parse_dotted_key_rest(s: string, pos: int, keys: list<string>) : result<
   }
 }
 
-pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>) : result<Toml, string> {
+pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list<(string, Toml)>, defined: list<string>, aot: list<string>) : result<Toml, string> {
   match parse_dotted_key(input, pos) {
     Err(e) => Err(e),
     Ok((keys, p1)) => {
@@ -670,7 +828,7 @@ pub fun parse_doc_keyval(input: string, pos: int, path: list<string>, root: list
               Ok(new_root) => {
                 match expect_eol(input, p4) {
                   Err(e) => Err(e),
-                  Ok(p5) => parse_doc(input, p5, path, new_root, defined)
+                  Ok(p5) => parse_doc(input, p5, path, new_root, defined, aot)
                 }
               }
             }
