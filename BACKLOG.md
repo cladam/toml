@@ -52,11 +52,11 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Booleans (`true`, `false`)
 - [x] Offset date-time (`1979-05-27T07:32:00Z`, `1979-05-27T00:32:00-07:00`)
 - [x] Offset date-time with space delimiter (`1979-05-27 07:32:00Z`)
-- [ ] Offset date-time seconds omitted (`1979-05-27 07:32Z`)
+- [x] Offset date-time seconds omitted (`1979-05-27 07:32Z`)
 - [x] Local date-time (`1979-05-27T07:32:00`)
 - [x] Local date (`1979-05-27`)
 - [x] Local time (`07:32:00`)
-- [ ] Local time seconds omitted (`07:32`)
+- [x] Local time seconds omitted (`07:32`)
 - [x] Fractional seconds (`00:32:00.999999`)
 
 ## Tables

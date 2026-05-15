@@ -193,3 +193,73 @@ test "multiple datetimes in table" {
     Err(_) => assert(false)
   }
 }
+
+test "local time seconds omitted" {
+  let input = "lt = 07:32"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let v = Some(doc).at("lt").as_datetime
+      match v {
+        Some(s) => assert(s == "07:32"),
+        None => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "offset datetime seconds omitted with Z" {
+  let input = "dt = 1979-05-27T07:32Z"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let v = Some(doc).at("dt").as_datetime
+      match v {
+        Some(s) => assert(s == "1979-05-27T07:32Z"),
+        None => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "offset datetime seconds omitted with offset" {
+  let input = "dt = 1979-05-27T07:32+02:00"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let v = Some(doc).at("dt").as_datetime
+      match v {
+        Some(s) => assert(s == "1979-05-27T07:32+02:00"),
+        None => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "local datetime seconds omitted" {
+  let input = "dt = 1979-05-27T07:32"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let v = Some(doc).at("dt").as_datetime
+      match v {
+        Some(s) => assert(s == "1979-05-27T07:32"),
+        None => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "space-delimited seconds omitted" {
+  let input = "dt = 1979-05-27 07:32Z"
+  match toml_parse(input) {
+    Ok(doc) => {
+      let v = Some(doc).at("dt").as_datetime
+      match v {
+        Some(s) => assert(s == "1979-05-27T07:32Z"),
+        None => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
