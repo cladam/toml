@@ -289,6 +289,63 @@ pub fun scan_ml_literal(s: string, pos: int, acc: string) : result<(Toml, int), 
   else { scan_ml_literal(s, pos + 1, acc + peek(s, pos)) }
 }
 
+pub fun is_oct_char(c: string) : bool =>
+  contains("01234567", c)
+
+pub fun is_bin_char(c: string) : bool =>
+  c == "0" || c == "1"
+
+pub fun oct_digit_val(c: string) : int {
+  if c == "0" { 0 } else if c == "1" { 1 } else if c == "2" { 2 }
+  else if c == "3" { 3 } else if c == "4" { 4 } else if c == "5" { 5 }
+  else if c == "6" { 6 } else { 7 }
+}
+
+pub fun parse_hex_int(s: string, pos: int, acc: int) : result<Toml, string> {
+  if pos >= str_length(s) {
+    if pos == 2 { Err("expected hex digits after 0x") }
+    else { Ok(TInt(acc)) }
+  }
+  else if is_hex_char(peek(s, pos)) {
+    parse_hex_int(s, pos + 1, acc * 16 + hex_digit_val(peek(s, pos)))
+  }
+  else { Err("invalid hex digit: " + peek(s, pos)) }
+}
+
+pub fun parse_oct_int(s: string, pos: int, acc: int) : result<Toml, string> {
+  if pos >= str_length(s) {
+    if pos == 2 { Err("expected octal digits after 0o") }
+    else { Ok(TInt(acc)) }
+  }
+  else if is_oct_char(peek(s, pos)) {
+    parse_oct_int(s, pos + 1, acc * 8 + oct_digit_val(peek(s, pos)))
+  }
+  else { Err("invalid octal digit: " + peek(s, pos)) }
+}
+
+pub fun parse_bin_int(s: string, pos: int, acc: int) : result<Toml, string> {
+  if pos >= str_length(s) {
+    if pos == 2 { Err("expected binary digits after 0b") }
+    else { Ok(TInt(acc)) }
+  }
+  else if is_bin_char(peek(s, pos)) {
+    let v = if peek(s, pos) == "1" { 1 } else { 0 }
+    parse_bin_int(s, pos + 1, acc * 2 + v)
+  }
+  else { Err("invalid binary digit: " + peek(s, pos)) }
+}
+
+pub fun has_leading_zero(s: string) : bool {
+  let first = peek(s, 0)
+  let second = peek(s, 1)
+  if str_length(s) < 2 { false }
+  else if first == "0" && second != "." && second != "" && second != "e" && second != "E" { true }
+  else if first != "+" && first != "-" { false }
+  else if str_length(s) < 3 { false }
+  else if peek(s, 1) == "0" && peek(s, 2) != "." && peek(s, 2) != "" && peek(s, 2) != "e" && peek(s, 2) != "E" { true }
+  else { false }
+}
+
 pub fun parse_value_bare(s: string, pos: int, acc: string) : result<(Toml, int), string> {
   if pos >= str_length(s) { finish_bare(acc, pos) }
   else if is_ws(peek(s, pos)) || is_newline(peek(s, pos)) || peek(s, pos) == "#" || peek(s, pos) == "," || peek(s, pos) == "]" || peek(s, pos) == "}" { finish_bare(acc, pos) }
@@ -296,36 +353,50 @@ pub fun parse_value_bare(s: string, pos: int, acc: string) : result<(Toml, int),
 }
 
 pub fun finish_bare(token: string, pos: int) : result<(Toml, int), string> {
+  let cleaned = replace(token, "_", "")
   if token == "" { Err("expected a value at position " + show(pos)) }
-  else {
-    match classify_bare(token) {
+  else if token == "true" { Ok((TBool(true), pos)) }
+  else if token == "false" { Ok((TBool(false), pos)) }
+  else if token == "inf" || token == "+inf" { Ok((TFloat(1.0 / 0.0), pos)) }
+  else if token == "-inf" { Ok((TFloat(0.0 - 1.0 / 0.0), pos)) }
+  else if token == "nan" || token == "+nan" || token == "-nan" { Ok((TFloat(0.0 / 0.0), pos)) }
+  else if starts_with(cleaned, "0x") || starts_with(cleaned, "0X") {
+    match parse_hex_int(cleaned, 2, 0) {
       Ok(v) => Ok((v, pos)),
       Err(e) => Err(e)
     }
   }
-}
-
-pub fun classify_bare(token: string) : result<Toml, string> {
-  if token == "true" { Ok(TBool(true)) }
-  else if token == "false" { Ok(TBool(false)) }
-  else if token == "inf" || token == "+inf" { Ok(TFloat(1.0 / 0.0)) }
-  else if token == "-inf" { Ok(TFloat(0.0 - 1.0 / 0.0)) }
-  else if token == "nan" || token == "+nan" || token == "-nan" { Ok(TFloat(0.0 / 0.0)) }
-  else { classify_number(token) }
-}
-
-pub fun classify_number(token: string) : result<Toml, string> {
-  let cleaned = replace(token, "_", "")
-  match parse_int(cleaned) {
-    Some(n) => Ok(TInt(n)),
-    None => classify_as_float(cleaned, token)
+  else if starts_with(cleaned, "0o") || starts_with(cleaned, "0O") {
+    match parse_oct_int(cleaned, 2, 0) {
+      Ok(v) => Ok((v, pos)),
+      Err(e) => Err(e)
+    }
   }
-}
-
-pub fun classify_as_float(cleaned: string, token: string) : result<Toml, string> {
-  match parse_float(cleaned) {
-    Some(f) => Ok(TFloat(f)),
-    None => Err("invalid value: " + token)
+  else if starts_with(cleaned, "0b") || starts_with(cleaned, "0B") {
+    match parse_bin_int(cleaned, 2, 0) {
+      Ok(v) => Ok((v, pos)),
+      Err(e) => Err(e)
+    }
+  }
+  else if has_leading_zero(cleaned) {
+    Err("leading zeros not allowed: " + token)
+  }
+  else if contains(cleaned, "e") || contains(cleaned, "E") || contains(cleaned, ".") {
+    match parse_float(cleaned) {
+      Some(f) => Ok((TFloat(f), pos)),
+      None => Err("invalid value: " + token)
+    }
+  }
+  else {
+    match parse_int(cleaned) {
+      Some(n) => Ok((TInt(n), pos)),
+      None => {
+        match parse_float(cleaned) {
+          Some(f) => Ok((TFloat(f), pos)),
+          None => Err("invalid value: " + token)
+        }
+      }
+    }
   }
 }
 

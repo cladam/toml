@@ -37,13 +37,13 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 
 - [x] Integers (decimal, with sign)
 - [x] Integers with underscores (`1_000`)
-- [ ] Hex integers (`0xDEADBEEF`)
-- [ ] Octal integers (`0o755`)
-- [ ] Binary integers (`0b11010110`)
-- [ ] Leading zero rejection
+- [x] Hex integers (`0xDEADBEEF`)
+- [x] Octal integers (`0o755`)
+- [x] Binary integers (`0b11010110`)
+- [x] Leading zero rejection
 - [x] Floats (decimal, with sign)
-- [ ] Floats (exponent `5e+22`, `1e06`)
-- [ ] Floats (fractional + exponent `6.626e-34`)
+- [x] Floats (exponent `5e+22`, `1e06`)
+- [x] Floats (fractional + exponent `6.626e-34`)
 - [x] Floats with underscores
 - [x] Special floats (`inf`, `nan`, `+inf`, `-inf`, `+nan`, `-nan`)
 
@@ -133,7 +133,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 
 - [x] Key/value pair tests
 - [-] String tests (all four kinds + escapes)
-- [-] Number tests (int bases, floats, specials)
+- [x] Number tests (int bases, floats, specials)
 - [x] Boolean tests
 - [ ] Date-time tests
 - [x] Table tests (standard, nested, implicit)
