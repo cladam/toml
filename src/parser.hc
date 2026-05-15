@@ -114,6 +114,9 @@ pub fun scan_escape(s: string, pos: int, acc: string) : result<(string, int), st
   else if peek(s, pos) == "n" { scan_basic_string(s, pos + 1, acc + "\n") }
   else if peek(s, pos) == "t" { scan_basic_string(s, pos + 1, acc + "\t") }
   else if peek(s, pos) == "r" { scan_basic_string(s, pos + 1, acc + "\r") }
+  else if peek(s, pos) == "b" { scan_basic_string(s, pos + 1, acc + char_to_string(chr(8))) }
+  else if peek(s, pos) == "f" { scan_basic_string(s, pos + 1, acc + char_to_string(chr(12))) }
+  else if peek(s, pos) == "e" { scan_basic_string(s, pos + 1, acc + char_to_string(chr(27))) }
   else if peek(s, pos) == "\\" { scan_basic_string(s, pos + 1, acc + "\\") }
   else if peek(s, pos) == "\"" { scan_basic_string(s, pos + 1, acc + "\"") }
   else { Err("invalid escape sequence: \\" + peek(s, pos)) }
@@ -155,6 +158,9 @@ pub fun parse_value_str_esc(s: string, pos: int, acc: string) : result<(Toml, in
   else if peek(s, pos) == "n" { parse_value_str(s, pos + 1, acc + "\n") }
   else if peek(s, pos) == "t" { parse_value_str(s, pos + 1, acc + "\t") }
   else if peek(s, pos) == "r" { parse_value_str(s, pos + 1, acc + "\r") }
+  else if peek(s, pos) == "b" { parse_value_str(s, pos + 1, acc + char_to_string(chr(8))) }
+  else if peek(s, pos) == "f" { parse_value_str(s, pos + 1, acc + char_to_string(chr(12))) }
+  else if peek(s, pos) == "e" { parse_value_str(s, pos + 1, acc + char_to_string(chr(27))) }
   else if peek(s, pos) == "\\" { parse_value_str(s, pos + 1, acc + "\\") }
   else if peek(s, pos) == "\"" { parse_value_str(s, pos + 1, acc + "\"") }
   else { Err("invalid escape sequence: \\" + peek(s, pos)) }

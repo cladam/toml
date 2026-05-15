@@ -16,6 +16,42 @@ test "escape sequences in strings" {
   }
 }
 
+test "backspace escape" {
+  match toml_parse("val = \"a\\bb\"") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TStr(v)) => assert(str_length(v) == 3),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "form feed escape" {
+  match toml_parse("val = \"a\\fb\"") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TStr(v)) => assert(str_length(v) == 3),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
+test "escape character escape" {
+  match toml_parse("val = \"a\\eb\"") {
+    Ok(doc) => {
+      match toml_get(doc, "val") {
+        Some(TStr(v)) => assert(str_length(v) == 3),
+        _ => assert(false)
+      }
+    },
+    Err(_) => assert(false)
+  }
+}
+
 // ============================================================
 // Literal string tests
 // ============================================================

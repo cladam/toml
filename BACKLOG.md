@@ -23,7 +23,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 ## Data Types — Strings
 
 - [x] Basic strings (`"hello"`)
-- [-] Escape sequences (`\n`, `\t`, `\r`, `\\`, `\"` — missing `\b`, `\f`, `\e`)
+- [x] Escape sequences (`\n`, `\t`, `\r`, `\\`, `\"`, `\b`, `\f`, `\e`)
 - [ ] Unicode escapes (`\xHH`, `\uHHHH`, `\UHHHHHHHH`)
 - [ ] Multi-line basic strings (`"""..."""`)
 - [ ] Multi-line newline trimming (newline after opening `"""`)
@@ -72,21 +72,21 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 
 ## Inline Tables
 
-- [ ] Basic inline tables (`{ key = "val" }`)
-- [ ] Nested inline tables
-- [ ] Dotted keys in inline tables
-- [ ] Trailing comma (v1.1.0)
+- [x] Basic inline tables (`{ key = "val" }`)
+- [x] Nested inline tables
+- [x] Dotted keys in inline tables
+- [x] Trailing comma (v1.1.0)
 - [ ] Multi-line inline tables (v1.1.0)
 - [ ] Inline table self-containment (no external additions)
 
 ## Arrays
 
-- [ ] Basic arrays (`[1, 2, 3]`)
-- [ ] Mixed-type arrays
-- [ ] Multi-line arrays
-- [ ] Trailing commas
-- [ ] Nested arrays
-- [ ] Comments inside arrays
+- [x] Basic arrays (`[1, 2, 3]`)
+- [x] Mixed-type arrays
+- [x] Multi-line arrays
+- [x] Trailing commas
+- [x] Nested arrays
+- [x] Comments inside arrays
 
 ## Array of Tables
 
@@ -143,6 +143,7 @@ Status tracking against [TOML v1.1.0](https://toml.io/en/v1.1.0) spec.
 - [x] Comment tests
 - [x] API tests (navigation, defaults, inspection)
 - [x] Error tests (malformed input)
+- [x] Display tests (toml_show, toml_pretty)
 
 ---
 
