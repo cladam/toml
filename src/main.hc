@@ -1,11 +1,19 @@
 import "./toml"
 
 fun main() {
-  let doc = TTable([("name", TStr("toml-lib"))])
-  match doc {
-    TTable(entries) => {
-      println("table with " + show(length(entries)) + " entries")
-    },
-    _ => println("not a table")
+  match read_file("hica.ini") {
+    Err(e) => println("read error: " + e),
+    Ok(input) => {
+      match toml_parse(input) {
+        Err(e) => println("parse error: " + e),
+        Ok(doc) => {
+          let d = Some(doc)
+          println("name:    " + str_or(d.at("project").at("name"), "?"))
+          println("version: " + str_or(d.at("project").at("version"), "?"))
+          println("license: " + str_or(d.at("project").at("license"), "?"))
+          println("entry:   " + str_or(d.at("project").at("entry"), "?"))
+        }
+      }
+    }
   }
 }
