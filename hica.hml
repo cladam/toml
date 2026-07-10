@@ -4,3 +4,13 @@
     license: "MIT"
     entry: "src/main.hc"
 }
+
+@dependencies {
+}
+
+@description {
+    summary: "TOML parser for hica ecosystem"
+    author: "Claes Adamsson <claes.adamsson@gmail.com>"
+    homepage: "https://www.hica.dev"
+    repository: "https://github.com/cladam/toml"
+}

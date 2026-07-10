@@ -5,16 +5,19 @@ Full implementation of [TOML v1.1.0](https://toml.io/en/v1.1.0) — 129 tests ac
 
 ## Installation
 
-Add as a git submodule to your hica project:
+### 1. Add the package
 
 ```sh
-git submodule add https://github.com/cladam/toml.git lib/toml
+hica add toml
+hica fetch
 ```
 
-Then import the library:
+This records the dependency in `hica.hml` and downloads the package.
 
-```rust
-import "./lib/toml/src/toml"
+### 2. Import
+
+```hica
+import "toml"
 ```
 
 ## Supported TOML
@@ -117,32 +120,6 @@ Run an example:
 
 ```sh
 hica run examples/basic_parsing.hc
-```
-
-## Project Structure
-
-```
-src/
-  toml.hc          # Barrel module — import this
-  toml_types.hc    # Toml type definition
-  parser.hc        # TOML parser, toml_parse entry point
-  api.hc           # Accessors, pipe-friendly navigation, defaults, inspection
-  display.hc       # toml_show, toml_pretty
-examples/
-  basic_parsing.hc
-  read_config.hc
-  simple.toml
-  config.toml
-tests/
-  test_basics.hc          # 24 tests — types, flat key/value, error line numbers
-  test_strings.hc         # 24 tests — escapes, unicode, multi-line, control chars
-  test_keys.hc            #  9 tests — quoted, dotted, empty keys
-  test_numbers.hc         # 15 tests — int, float, hex, octal, binary, special
-  test_datetimes.hc       # 17 tests — offset, local, date, time, fractional
-  test_tables.hc          # 10 tests — standard, nested, duplicates
-  test_inline_tables.hc   # 13 tests — inline, nested, trailing comma, self-containment
-  test_arrays.hc          #  9 tests — basic, mixed, multi-line, nested
-  test_array_tables.hc    #  8 tests — basic, nested, sub-tables, conflicts
 ```
 
 ## Running Tests
