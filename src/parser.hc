@@ -1,5 +1,6 @@
 // parser.hc — TOML parser (bare keys + basic string values)
 import "./toml_types"
+from "std/datetime" import { datetime_kind }
 
 // ============================================================
 // Character helpers
@@ -15,7 +16,7 @@ pub fun is_ws(c: string) : bool =>
 pub fun is_newline(c: string) : bool =>
   c == "\n" || c == "\r"
 
-pub fun is_digit(c: string) : bool =>
+pub fun is_digit_str(c: string) : bool =>
   contains("0123456789", c)
 
 pub fun is_control_char(c: string) : bool {
@@ -390,7 +391,7 @@ pub fun has_leading_zero(s: string) : bool {
 
 pub fun parse_value_bare(s: string, pos: int, acc: string) : result<(Toml, int), string> {
   if pos >= str_length(s) { finish_bare(acc, pos) }
-  else if peek(s, pos) == " " && str_length(acc) == 10 && is_date_prefix(acc) && is_digit(peek(s, pos + 1)) {
+  else if peek(s, pos) == " " && str_length(acc) == 10 && is_date_prefix(acc) && is_digit_str(peek(s, pos + 1)) {
     parse_value_bare(s, pos + 1, acc + "T")
   }
   else if is_ws(peek(s, pos)) || is_newline(peek(s, pos)) || peek(s, pos) == "#" || peek(s, pos) == "," || peek(s, pos) == "]" || peek(s, pos) == "}" { finish_bare(acc, pos) }

@@ -1,4 +1,5 @@
 import "../src/toml"
+import "std/datetime"
 
 test "offset datetime with Z" {
   let input = "dt = 1979-05-27T07:32:00Z"
