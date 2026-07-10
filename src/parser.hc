@@ -111,10 +111,8 @@ pub fun expect_eol(s: string, pos: int) : result<int, string> {
   let p = skip_ws(s, pos)
   if p >= str_length(s) { Ok(p) }
   else if peek(s, p) == "#" {
-    match scan_comment(s, p + 1) {
-      Ok(end) => Ok(skip_newline(s, end)),
-      Err(e) => Err(e)
-    }
+    let end = scan_comment(s, p + 1)?
+    Ok(skip_newline(s, end))
   }
   else if is_newline(peek(s, p)) { Ok(skip_newline(s, p)) }
   else { Err("expected newline or comment at position " + show(p)) }
@@ -411,22 +409,16 @@ pub fun finish_bare(token: string, pos: int) : result<(Toml, int), string> {
   else if token == "nan" || token == "+nan" || token == "-nan" { Ok((TFloat(0.0 / 0.0), pos)) }
   else if datetime_kind(token) != "invalid" { Ok((TDatetime(token), pos)) }
   else if starts_with(cleaned, "0x") || starts_with(cleaned, "0X") {
-    match parse_hex_int(cleaned, 2, 0) {
-      Ok(v) => Ok((v, pos)),
-      Err(e) => Err(e)
-    }
+    let v = parse_hex_int(cleaned, 2, 0)?
+    Ok((v, pos))
   }
   else if starts_with(cleaned, "0o") || starts_with(cleaned, "0O") {
-    match parse_oct_int(cleaned, 2, 0) {
-      Ok(v) => Ok((v, pos)),
-      Err(e) => Err(e)
-    }
+    let v = parse_oct_int(cleaned, 2, 0)?
+    Ok((v, pos))
   }
   else if starts_with(cleaned, "0b") || starts_with(cleaned, "0B") {
-    match parse_bin_int(cleaned, 2, 0) {
-      Ok(v) => Ok((v, pos)),
-      Err(e) => Err(e)
-    }
+    let v = parse_bin_int(cleaned, 2, 0)?
+    Ok((v, pos))
   }
   else if has_leading_zero(cleaned) {
     Err("leading zeros not allowed: " + token)
