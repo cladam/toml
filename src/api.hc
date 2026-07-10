@@ -60,10 +60,8 @@ pub fun toml_ok(r: result<Toml, string>) : maybe<Toml> => match r {
   Err(_) => None
 }
 
-pub fun at(m: maybe<Toml>, key: string) : maybe<Toml> => match m {
-  Some(t) => toml_get(t, key),
-  None => None
-}
+pub fun at(m: maybe<Toml>, key: string) : maybe<Toml> =>
+  m |> and_then((t) => toml_get(t, key))
 
 pub fun nth(m: maybe<Toml>, index: int) : maybe<Toml> => match m {
   Some(TArray(items)) => list_nth(items, index),
@@ -75,78 +73,52 @@ pub fun list_nth(xs: list<Toml>, i: int) : maybe<Toml> => match xs {
   [x, ..rest] => if i == 0 { Some(x) } else { list_nth(rest, i - 1) }
 }
 
-pub fun as_str(m: maybe<Toml>) : maybe<string> => match m {
-  Some(t) => toml_str(t),
-  None => None
-}
+pub fun as_str(m: maybe<Toml>) : maybe<string> =>
+  m |> and_then((t) => toml_str(t))
 
-pub fun as_int(m: maybe<Toml>) : maybe<int> => match m {
-  Some(t) => toml_int(t),
-  None => None
-}
+pub fun as_int(m: maybe<Toml>) : maybe<int> =>
+  m |> and_then((t) => toml_int(t))
 
-pub fun as_float(m: maybe<Toml>) : maybe<float> => match m {
-  Some(t) => toml_float(t),
-  None => None
-}
+pub fun as_float(m: maybe<Toml>) : maybe<float> =>
+  m |> and_then((t) => toml_float(t))
 
-pub fun as_bool(m: maybe<Toml>) : maybe<bool> => match m {
-  Some(t) => toml_bool(t),
-  None => None
-}
+pub fun as_bool(m: maybe<Toml>) : maybe<bool> =>
+  m |> and_then((t) => toml_bool(t))
 
-pub fun as_datetime(m: maybe<Toml>) : maybe<string> => match m {
-  Some(t) => toml_datetime(t),
-  None => None
-}
+pub fun as_datetime(m: maybe<Toml>) : maybe<string> =>
+  m |> and_then((t) => toml_datetime(t))
 
-pub fun as_list(m: maybe<Toml>) : maybe<list<Toml>> => match m {
-  Some(t) => toml_list(t),
-  None => None
-}
+pub fun as_list(m: maybe<Toml>) : maybe<list<Toml>> =>
+  m |> and_then((t) => toml_list(t))
 
-pub fun as_table(m: maybe<Toml>) : maybe<list<(string, Toml)>> => match m {
-  Some(t) => toml_table(t),
-  None => None
-}
+pub fun as_table(m: maybe<Toml>) : maybe<list<(string, Toml)>> =>
+  m |> and_then((t) => toml_table(t))
 
 // ============================================================
 // Defaults
 // ============================================================
 
-pub fun str_or(m: maybe<Toml>, fallback: string) : string => match as_str(m) {
-  Some(v) => v,
-  None => fallback
-}
+pub fun str_or(m: maybe<Toml>, fallback: string) : string =>
+  unwrap_maybe_or(as_str(m), fallback)
 
-pub fun int_or(m: maybe<Toml>, fallback: int) : int => match as_int(m) {
-  Some(v) => v,
-  None => fallback
-}
+pub fun int_or(m: maybe<Toml>, fallback: int) : int =>
+  unwrap_maybe_or(as_int(m), fallback)
 
-pub fun float_or(m: maybe<Toml>, fallback: float) : float => match as_float(m) {
-  Some(v) => v,
-  None => fallback
-}
+pub fun float_or(m: maybe<Toml>, fallback: float) : float =>
+  unwrap_maybe_or(as_float(m), fallback)
 
-pub fun bool_or(m: maybe<Toml>, fallback: bool) : bool => match as_bool(m) {
-  Some(v) => v,
-  None => fallback
-}
+pub fun bool_or(m: maybe<Toml>, fallback: bool) : bool =>
+  unwrap_maybe_or(as_bool(m), fallback)
 
-pub fun datetime_or(m: maybe<Toml>, fallback: string) : string => match as_datetime(m) {
-  Some(v) => v,
-  None => fallback
-}
+pub fun datetime_or(m: maybe<Toml>, fallback: string) : string =>
+  unwrap_maybe_or(as_datetime(m), fallback)
 
 // ============================================================
 // Inspection
 // ============================================================
 
-pub fun has_key(m: maybe<Toml>, key: string) : bool => match m {
-  Some(t) => is_some(toml_get(t, key)),
-  None => false
-}
+pub fun has_key(m: maybe<Toml>, key: string) : bool =>
+  is_some(at(m, key))
 
 pub fun keys(m: maybe<Toml>) : list<string> => match m {
   Some(TTable(entries)) => map(entries, (e) => e.0),
