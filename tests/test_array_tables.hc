@@ -25,33 +25,18 @@ test "array of tables value access" {
   match toml_parse(input) {
     Ok(doc) => {
       let d = Some(doc)
-      let first = d.at("products").nth(0)
-      match first {
-        Some(TTable(_)) => {
-          let n = first.at("name")
-          match n {
-            Some(TStr(v)) => assert(v == "Hammer"),
-            _ => assert(false)
-          }
-        },
+      let first_name = d.at("products").nth(0).at("name")
+      match first_name {
+        Some(TStr(v)) => assert(v == "Hammer"),
         _ => assert(false)
       }
-      let second = d.at("products").nth(1)
-      match second {
-        Some(TTable(_)) => {
-          let n = second.at("name")
-          match n {
-            Some(TStr(v)) => assert(v == "Nail"),
-            _ => assert(false)
-          }
-        },
+      let second_name = d.at("products").nth(1).at("name")
+      match second_name {
+        Some(TStr(v)) => assert(v == "Nail"),
         _ => assert(false)
       }
     },
-    Err(e) => {
-
-      assert(false)
-    }
+    Err(_) => assert(false)
   }
 }
 
