@@ -43,14 +43,11 @@ pub fun is_bare_key_char(c: string) : bool =>
 pub fun is_hex_char(c: string) : bool =>
   contains("0123456789abcdefABCDEF", c)
 
-pub fun hex_digit_val(c: string) : int {
-  if c == "0" { 0 } else if c == "1" { 1 } else if c == "2" { 2 }
-  else if c == "3" { 3 } else if c == "4" { 4 } else if c == "5" { 5 }
-  else if c == "6" { 6 } else if c == "7" { 7 } else if c == "8" { 8 }
-  else if c == "9" { 9 } else if c == "a" || c == "A" { 10 }
-  else if c == "b" || c == "B" { 11 } else if c == "c" || c == "C" { 12 }
-  else if c == "d" || c == "D" { 13 } else if c == "e" || c == "E" { 14 }
-  else { 15 }
+pub fun hex_digit_val(c: string) : int => match c {
+  "0" => 0, "1" => 1, "2" => 2, "3" => 3, "4" => 4,
+  "5" => 5, "6" => 6, "7" => 7, "8" => 8, "9" => 9,
+  "a" | "A" => 10, "b" | "B" => 11, "c" | "C" => 12,
+  "d" | "D" => 13, "e" | "E" => 14, _ => 15
 }
 
 // Parse exactly n hex digits starting at pos, return (codepoint, new_pos) or error
@@ -336,10 +333,9 @@ pub fun is_oct_char(c: string) : bool =>
 pub fun is_bin_char(c: string) : bool =>
   c == "0" || c == "1"
 
-pub fun oct_digit_val(c: string) : int {
-  if c == "0" { 0 } else if c == "1" { 1 } else if c == "2" { 2 }
-  else if c == "3" { 3 } else if c == "4" { 4 } else if c == "5" { 5 }
-  else if c == "6" { 6 } else { 7 }
+pub fun oct_digit_val(c: string) : int => match c {
+  "0" => 0, "1" => 1, "2" => 2, "3" => 3,
+  "4" => 4, "5" => 5, "6" => 6, _ => 7
 }
 
 pub fun parse_hex_int(s: string, pos: int, acc: int) : result<Toml, string> {

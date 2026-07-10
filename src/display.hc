@@ -11,7 +11,7 @@ pub fun toml_show(t: Toml) : string => match t {
   TFloat(v) => show(v),
   TBool(v) => if v { "true" } else { "false" },
   TDatetime(v) => v,
-  TArray(items) => "[" + join(map(items, (i) => toml_show(i)), ", ") + "]",
+  TArray(items) => "[" + join(map(items, toml_show), ", ") + "]",
   TTable(entries) => join(["{", join(map(entries, (e) => e.0 + " = " + toml_show(e.1)), ", "), "}"], "")
 }
 
