@@ -63,10 +63,8 @@ pub fun toml_ok(r: result<Toml, string>) : maybe<Toml> => match r {
 pub fun at(m: maybe<Toml>, key: string) : maybe<Toml> =>
   m |> and_then((t) => toml_get(t, key))
 
-pub fun nth(m: maybe<Toml>, index: int) : maybe<Toml> => match m {
-  Some(TArray(items)) => list_nth(items, index),
-  _ => None
-}
+pub fun nth(m: maybe<Toml>, index: int) : maybe<Toml> =>
+  as_list(m) |> and_then((items) => list_nth(items, index))
 
 pub fun list_nth(xs: list<Toml>, i: int) : maybe<Toml> => match xs {
   [] => None,
