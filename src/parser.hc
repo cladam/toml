@@ -179,10 +179,8 @@ pub fun scan_escape(s: string, pos: int, acc: string) : result<(string, int), st
 }
 
 pub fun scan_key_unicode(s: string, pos: int, n: int, acc: string) : result<(string, int), string> {
-  match parse_hex_digits(s, pos, n, 0) {
-    Err(e) => Err(e),
-    Ok((cp, p)) => scan_basic_string(s, p, acc + char_to_string(chr(cp)))
-  }
+  let (cp, p) = parse_hex_digits(s, pos, n, 0)?
+  scan_basic_string(s, p, acc + char_to_string(chr(cp)))
 }
 
 // ============================================================
@@ -241,10 +239,8 @@ pub fun parse_value_str_esc(s: string, pos: int, acc: string) : result<(Toml, in
 }
 
 pub fun value_unicode_esc(s: string, pos: int, n: int, acc: string) : result<(Toml, int), string> {
-  match parse_hex_digits(s, pos, n, 0) {
-    Err(e) => Err(e),
-    Ok((cp, p)) => parse_value_str(s, p, acc + char_to_string(chr(cp)))
-  }
+  let (cp, p) = parse_hex_digits(s, pos, n, 0)?
+  parse_value_str(s, p, acc + char_to_string(chr(cp)))
 }
 
 // ============================================================
@@ -290,10 +286,8 @@ pub fun scan_ml_basic_esc(s: string, pos: int, acc: string) : result<(Toml, int)
 }
 
 pub fun ml_unicode_esc(s: string, pos: int, n: int, acc: string) : result<(Toml, int), string> {
-  match parse_hex_digits(s, pos, n, 0) {
-    Err(e) => Err(e),
-    Ok((cp, p)) => scan_ml_basic(s, p, acc + char_to_string(chr(cp)))
-  }
+  let (cp, p) = parse_hex_digits(s, pos, n, 0)?
+  scan_ml_basic(s, p, acc + char_to_string(chr(cp)))
 }
 
 // Line-ending backslash: skip whitespace + newlines until next non-ws char
@@ -447,16 +441,12 @@ pub fun parse_array(s: string, pos: int, items: list<Toml>) : result<(Toml, int)
   if p >= str_length(s) { Err("unterminated array") }
   else if peek(s, p) == "]" { Ok((TArray(items), p + 1)) }
   else {
-    match parse_value(s, p) {
-      Err(e) => Err(e),
-      Ok((val, p2)) => {
-        let p3 = skip_ws_nl_comments(s, p2)
-        if p3 >= str_length(s) { Err("unterminated array") }
-        else if peek(s, p3) == "]" { Ok((TArray(items + [val]), p3 + 1)) }
-        else if peek(s, p3) == "," { parse_array(s, p3 + 1, items + [val]) }
-        else { Err("expected ',' or ']' in array at position " + show(p3)) }
-      }
-    }
+    let (val, p2) = parse_value(s, p)?
+    let p3 = skip_ws_nl_comments(s, p2)
+    if p3 >= str_length(s) { Err("unterminated array") }
+    else if peek(s, p3) == "]" { Ok((TArray(items + [val]), p3 + 1)) }
+    else if peek(s, p3) == "," { parse_array(s, p3 + 1, items + [val]) }
+    else { Err("expected ',' or ']' in array at position " + show(p3)) }
   }
 }
 
@@ -469,45 +459,31 @@ pub fun parse_inline_table(s: string, pos: int, entries: list<(string, Toml)>) :
   if p >= str_length(s) { Err("unterminated inline table") }
   else if peek(s, p) == "}" { Ok((TTable(entries), p + 1)) }
   else {
-    match parse_inline_kv(s, p) {
-      Err(e) => Err(e),
-      Ok((key, val, p2)) => {
-        if any(entries, (e) => e.0 == key) { Err("duplicate key: " + key) }
-        else {
-          let new_entries = entries + [(key, val)]
-          let p3 = skip_ws_nl_comments(s, p2)
-          if p3 >= str_length(s) { Err("unterminated inline table") }
-          else if peek(s, p3) == "}" { Ok((TTable(new_entries), p3 + 1)) }
-          else if peek(s, p3) == "," { parse_inline_table(s, p3 + 1, new_entries) }
-          else { Err("expected ',' or '}' in inline table at position " + show(p3)) }
-        }
-      }
+    let (key, val, p2) = parse_inline_kv(s, p)?
+    if any(entries, (e) => e.0 == key) { Err("duplicate key: " + key) }
+    else {
+      let new_entries = entries + [(key, val)]
+      let p3 = skip_ws_nl_comments(s, p2)
+      if p3 >= str_length(s) { Err("unterminated inline table") }
+      else if peek(s, p3) == "}" { Ok((TTable(new_entries), p3 + 1)) }
+      else if peek(s, p3) == "," { parse_inline_table(s, p3 + 1, new_entries) }
+      else { Err("expected ',' or '}' in inline table at position " + show(p3)) }
     }
   }
 }
 
 pub fun parse_inline_kv(s: string, pos: int) : result<(string, Toml, int), string> {
-  match parse_dotted_key(s, pos) {
-    Err(e) => Err(e),
-    Ok((keys, p1)) => {
-      let p2 = skip_ws(s, p1)
-      if peek(s, p2) != "=" { Err("expected '=' in inline table at position " + show(p2)) }
-      else {
-        let p3 = skip_ws(s, p2 + 1)
-        match parse_value(s, p3) {
-          Err(e) => Err(e),
-          Ok((val, p4)) => {
-            match keys {
-              [single] => Ok((single, val, p4)),
-              _ => {
-                match build_nested(keys, val) {
-                  Ok((k, nested)) => Ok((k, nested, p4)),
-                  Err(e) => Err(e)
-                }
-              }
-            }
-          }
-        }
+  let (keys, p1) = parse_dotted_key(s, pos)?
+  let p2 = skip_ws(s, p1)
+  if peek(s, p2) != "=" { Err("expected '=' in inline table at position " + show(p2)) }
+  else {
+    let p3 = skip_ws(s, p2 + 1)
+    let (val, p4) = parse_value(s, p3)?
+    match keys {
+      [single] => Ok((single, val, p4)),
+      _ => {
+        let (k, nested) = build_nested(keys, val)?
+        Ok((k, nested, p4))
       }
     }
   }
@@ -518,10 +494,8 @@ pub fun build_nested(keys: list<string>, val: Toml) : result<(string, Toml), str
     [] => Err("empty key path"),
     [single] => Ok((single, val)),
     [first, ..rest] => {
-      match build_nested(rest, val) {
-        Ok((k, inner)) => Ok((first, TTable([(k, inner)]))),
-        Err(e) => Err(e)
-      }
+      let (k, inner) = build_nested(rest, val)?
+      Ok((first, TTable([(k, inner)])))
     }
   }
 }
@@ -556,23 +530,17 @@ pub fun table_set_leaf(entries: list<(string, Toml)>, key: string, value: Toml) 
 pub fun table_set_nested(entries: list<(string, Toml)>, key: string, rest: list<string>, value: Toml) : result<list<(string, Toml)>, string> {
   match table_find(entries, key) {
     Some(TTable(sub)) => {
-      match table_set(sub, rest, value) {
-        Ok(new_sub) => Ok(table_replace(entries, key, TTable(new_sub))),
-        Err(e) => Err(e)
-      }
+      let new_sub = table_set(sub, rest, value)?
+      Ok(table_replace(entries, key, TTable(new_sub)))
     },
     Some(TArray(items)) => {
-      match last_table_set(items, rest, value) {
-        Ok(new_items) => Ok(table_replace(entries, key, TArray(new_items))),
-        Err(e) => Err(e)
-      }
+      let new_items = last_table_set(items, rest, value)?
+      Ok(table_replace(entries, key, TArray(new_items)))
     },
     Some(_) => Err("key " + key + " is not a table"),
     None => {
-      match table_set([], rest, value) {
-        Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
-        Err(e) => Err(e)
-      }
+      let new_sub = table_set([], rest, value)?
+      Ok(entries + [(key, TTable(new_sub))])
     }
   }
 }
@@ -582,17 +550,13 @@ pub fun last_table_set(items: list<Toml>, path: list<string>, value: Toml) : res
   match items {
     [] => Err("empty array of tables"),
     [TTable(sub)] => {
-      match table_set(sub, path, value) {
-        Ok(new_sub) => Ok([TTable(new_sub)]),
-        Err(e) => Err(e)
-      }
+      let new_sub = table_set(sub, path, value)?
+      Ok([TTable(new_sub)])
     },
     [other] => Err("last element is not a table"),
     [head, ..rest] => {
-      match last_table_set(rest, path, value) {
-        Ok(new_rest) => Ok([head] + new_rest),
-        Err(e) => Err(e)
-      }
+      let new_rest = last_table_set(rest, path, value)?
+      Ok([head] + new_rest)
     }
   }
 }
@@ -604,23 +568,17 @@ pub fun ensure_table(entries: list<(string, Toml)>, path: list<string>) : result
     [key, ..rest] => {
       match table_find(entries, key) {
         Some(TTable(sub)) => {
-          match ensure_table(sub, rest) {
-            Ok(new_sub) => Ok(table_replace(entries, key, TTable(new_sub))),
-            Err(e) => Err(e)
-          }
+          let new_sub = ensure_table(sub, rest)?
+          Ok(table_replace(entries, key, TTable(new_sub)))
         },
         Some(TArray(items)) => {
-          match last_table_ensure(items, rest) {
-            Ok(new_items) => Ok(table_replace(entries, key, TArray(new_items))),
-            Err(e) => Err(e)
-          }
+          let new_items = last_table_ensure(items, rest)?
+          Ok(table_replace(entries, key, TArray(new_items)))
         },
         Some(_) => Err("key " + key + " is not a table"),
         None => {
-          match ensure_table([], rest) {
-            Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
-            Err(e) => Err(e)
-          }
+          let new_sub = ensure_table([], rest)?
+          Ok(entries + [(key, TTable(new_sub))])
         }
       }
     }
@@ -632,17 +590,13 @@ pub fun last_table_ensure(items: list<Toml>, path: list<string>) : result<list<T
   match items {
     [] => Err("empty array of tables"),
     [TTable(sub)] => {
-      match ensure_table(sub, path) {
-        Ok(new_sub) => Ok([TTable(new_sub)]),
-        Err(e) => Err(e)
-      }
+      let new_sub = ensure_table(sub, path)?
+      Ok([TTable(new_sub)])
     },
     [other] => Err("last element is not a table"),
     [head, ..rest] => {
-      match last_table_ensure(rest, path) {
-        Ok(new_rest) => Ok([head] + new_rest),
-        Err(e) => Err(e)
-      }
+      let new_rest = last_table_ensure(rest, path)?
+      Ok([head] + new_rest)
     }
   }
 }
@@ -665,23 +619,17 @@ pub fun array_table_append(entries: list<(string, Toml)>, path: list<string>, ao
     [key, ..rest] => {
       match table_find(entries, key) {
         Some(TTable(sub)) => {
-          match array_table_append(sub, rest, aot, full_pk) {
-            Ok(new_sub) => Ok(table_replace(entries, key, TTable(new_sub))),
-            Err(e) => Err(e)
-          }
+          let new_sub = array_table_append(sub, rest, aot, full_pk)?
+          Ok(table_replace(entries, key, TTable(new_sub)))
         },
         Some(TArray(items)) => {
-          match last_table_array_append(items, rest, aot, full_pk) {
-            Ok(new_items) => Ok(table_replace(entries, key, TArray(new_items))),
-            Err(e) => Err(e)
-          }
+          let new_items = last_table_array_append(items, rest, aot, full_pk)?
+          Ok(table_replace(entries, key, TArray(new_items)))
         },
         Some(_) => Err("key " + key + " is not a table"),
         None => {
-          match array_table_append([], rest, aot, full_pk) {
-            Ok(new_sub) => Ok(entries + [(key, TTable(new_sub))]),
-            Err(e) => Err(e)
-          }
+          let new_sub = array_table_append([], rest, aot, full_pk)?
+          Ok(entries + [(key, TTable(new_sub))])
         }
       }
     }
@@ -693,17 +641,13 @@ pub fun last_table_array_append(items: list<Toml>, path: list<string>, aot: list
   match items {
     [] => Err("empty array of tables"),
     [TTable(sub)] => {
-      match array_table_append(sub, path, aot, full_pk) {
-        Ok(new_sub) => Ok([TTable(new_sub)]),
-        Err(e) => Err(e)
-      }
+      let new_sub = array_table_append(sub, path, aot, full_pk)?
+      Ok([TTable(new_sub)])
     },
     [other] => Err("last element is not a table"),
     [head, ..rest] => {
-      match last_table_array_append(rest, path, aot, full_pk) {
-        Ok(new_rest) => Ok([head] + new_rest),
-        Err(e) => Err(e)
-      }
+      let new_rest = last_table_array_append(rest, path, aot, full_pk)?
+      Ok([head] + new_rest)
     }
   }
 }
@@ -715,46 +659,34 @@ pub fun last_table_array_append(items: list<Toml>, path: list<string>, aot: list
 pub fun parse_table_header(s: string, pos: int) : result<(list<string>, int), string> {
   // pos is at '['
   let p = skip_ws(s, pos + 1)
-  match parse_header_key(s, p) {
-    Err(e) => Err(e),
-    Ok((keys, p2)) => {
-      let p3 = skip_ws(s, p2)
-      if peek(s, p3) != "]" { Err("expected ']' at position " + show(p3)) }
-      else { Ok((keys, p3 + 1)) }
-    }
-  }
+  let (keys, p2) = parse_header_key(s, p)?
+  let p3 = skip_ws(s, p2)
+  if peek(s, p3) != "]" { Err("expected ']' at position " + show(p3)) }
+  else { Ok((keys, p3 + 1)) }
 }
 
 // Parse [[key.path]] — pos is at first '['
 pub fun parse_array_table_header(s: string, pos: int) : result<(list<string>, int), string> {
   // pos is at first '[', pos+1 is at second '['
   let p = skip_ws(s, pos + 2)
-  match parse_header_key(s, p) {
-    Err(e) => Err(e),
-    Ok((keys, p2)) => {
-      let p3 = skip_ws(s, p2)
-      if peek(s, p3) != "]" { Err("expected ']]' at position " + show(p3)) }
-      else if peek(s, p3 + 1) != "]" { Err("expected ']]' at position " + show(p3)) }
-      else { Ok((keys, p3 + 2)) }
-    }
-  }
+  let (keys, p2) = parse_header_key(s, p)?
+  let p3 = skip_ws(s, p2)
+  if peek(s, p3) != "]" { Err("expected ']]' at position " + show(p3)) }
+  else if peek(s, p3 + 1) != "]" { Err("expected ']]' at position " + show(p3)) }
+  else { Ok((keys, p3 + 2)) }
 }
 
 pub fun parse_header_key(s: string, pos: int) : result<(list<string>, int), string> {
-  match parse_key(s, pos) {
-    Err(e) => Err(e),
-    Ok((k, p)) => parse_header_key_rest(s, skip_ws(s, p), [k])
-  }
+  let (k, p) = parse_key(s, pos)?
+  parse_header_key_rest(s, skip_ws(s, p), [k])
 }
 
 pub fun parse_header_key_rest(s: string, pos: int, keys: list<string>) : result<(list<string>, int), string> {
   if peek(s, pos) != "." { Ok((keys, pos)) }
   else {
     let p = skip_ws(s, pos + 1)
-    match parse_key(s, p) {
-      Err(e) => Err(e),
-      Ok((k, p2)) => parse_header_key_rest(s, skip_ws(s, p2), keys + [k])
-    }
+    let (k, p2) = parse_key(s, p)?
+    parse_header_key_rest(s, skip_ws(s, p2), keys + [k])
   }
 }
 
@@ -877,20 +809,16 @@ pub fun parse_doc_array_table(input: string, pos: int, root: list<(string, Toml)
 }
 
 pub fun parse_dotted_key(s: string, pos: int) : result<(list<string>, int), string> {
-  match parse_key(s, pos) {
-    Err(e) => Err(e),
-    Ok((k, p)) => parse_dotted_key_rest(s, skip_ws(s, p), [k])
-  }
+  let (k, p) = parse_key(s, pos)?
+  parse_dotted_key_rest(s, skip_ws(s, p), [k])
 }
 
 pub fun parse_dotted_key_rest(s: string, pos: int, keys: list<string>) : result<(list<string>, int), string> {
   if peek(s, pos) != "." { Ok((keys, pos)) }
   else {
     let p = skip_ws(s, pos + 1)
-    match parse_key(s, p) {
-      Err(e) => Err(e),
-      Ok((k, p2)) => parse_dotted_key_rest(s, skip_ws(s, p2), keys + [k])
-    }
+    let (k, p2) = parse_key(s, p)?
+    parse_dotted_key_rest(s, skip_ws(s, p2), keys + [k])
   }
 }
 
